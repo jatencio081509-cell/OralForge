@@ -27,9 +27,11 @@ export function ProgressRing({ tasks, size = 200 }: ProgressRingProps) {
 
   const count = tasks.length;
   const segAngle = 360 / count;
-  const gapAngle = GAP_DEG;
-  const segLength = (circumference * (segAngle - gapAngle)) / 360;
-  const gapLength = (circumference * gapAngle) / 360;
+  const segLength = (circumference * (segAngle - GAP_DEG)) / 360;
+  const restLength = circumference - segLength;
+
+  // react-native-svg requires strokeDasharray as a string, not an array
+  const dashArray = `${segLength} ${restLength}`;
 
   const completedCount = tasks.filter((t) => t.done).length;
   const allDone = completedCount === count;
@@ -39,12 +41,12 @@ export function ProgressRing({ tasks, size = 200 }: ProgressRingProps) {
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {tasks.map((task, i) => {
           const startDeg = i * segAngle - 90;
-          const color = task.done ? colors.primary : colors.border;
-          const dashOffset = -((circumference * startDeg) / 360);
+          const dashOffset = String(-((circumference * startDeg) / 360));
+          const activeColor = task.done ? colors.primary : colors.border;
 
           return (
             <G key={i}>
-              {/* background track */}
+              {/* Track (always shown in muted) */}
               <Circle
                 cx={cx}
                 cy={cy}
@@ -52,22 +54,24 @@ export function ProgressRing({ tasks, size = 200 }: ProgressRingProps) {
                 stroke={colors.muted}
                 strokeWidth={STROKE_WIDTH}
                 fill="none"
-                strokeDasharray={[segLength, circumference - segLength]}
+                strokeDasharray={dashArray}
                 strokeDashoffset={dashOffset}
                 strokeLinecap="round"
               />
-              {/* colored fill */}
-              <Circle
-                cx={cx}
-                cy={cy}
-                r={radius}
-                stroke={color}
-                strokeWidth={STROKE_WIDTH}
-                fill="none"
-                strokeDasharray={[segLength, circumference - segLength]}
-                strokeDashoffset={dashOffset}
-                strokeLinecap="round"
-              />
+              {/* Active fill — only drawn when done */}
+              {task.done && (
+                <Circle
+                  cx={cx}
+                  cy={cy}
+                  r={radius}
+                  stroke={activeColor}
+                  strokeWidth={STROKE_WIDTH}
+                  fill="none"
+                  strokeDasharray={dashArray}
+                  strokeDashoffset={dashOffset}
+                  strokeLinecap="round"
+                />
+              )}
             </G>
           );
         })}
@@ -76,30 +80,15 @@ export function ProgressRing({ tasks, size = 200 }: ProgressRingProps) {
       {/* Center content */}
       <View style={styles.center}>
         {allDone ? (
-          <View
-            style={[
-              styles.checkCircle,
-              { backgroundColor: colors.primary + "22" },
-            ]}
-          >
+          <View style={[styles.checkCircle, { backgroundColor: colors.primary + "22" }]}>
             <Ionicons name="checkmark" size={28} color={colors.primary} />
           </View>
         ) : (
           <>
-            <Text
-              style={[
-                styles.fraction,
-                { color: colors.foreground, fontFamily: "Inter_700Bold" },
-              ]}
-            >
+            <Text style={[styles.fraction, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               {completedCount}/{count}
             </Text>
-            <Text
-              style={[
-                styles.fractionLabel,
-                { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-              ]}
-            >
+            <Text style={[styles.fractionLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
               done
             </Text>
           </>
@@ -127,11 +116,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  fraction: {
-    fontSize: 32,
-    lineHeight: 36,
-  },
-  fractionLabel: {
-    fontSize: 13,
-  },
+  fraction: { fontSize: 32, lineHeight: 36 },
+  fractionLabel: { fontSize: 13 },
 });

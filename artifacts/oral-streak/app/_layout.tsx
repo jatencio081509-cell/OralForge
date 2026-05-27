@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import {
+  configureNotificationHandler,
   requestNotificationPermissions,
   scheduleAllReminders,
 } from "@/services/notificationService";
@@ -35,16 +36,33 @@ function RootLayoutNav() {
     }
   }, [loading, state.settings.onboardingComplete]);
 
-  // Bootstrap notifications once after onboarding is complete
+  // Set up notification handler and request permissions once
   useEffect(() => {
     if (loading || !state.settings.onboardingComplete) return;
     if (notifBootstrapped.current) return;
     notifBootstrapped.current = true;
-    requestNotificationPermissions();
+    // Run entirely async — never block or crash the UI
+    (async () => {
+      try {
+        configureNotificationHandler();
+        await requestNotificationPermissions();
+        await scheduleAllReminders(
+          state.settings.morningReminderTime,
+          state.settings.nightReminderTime,
+          {
+            morningBrush: todayRecord.morningBrush,
+            nightBrush: todayRecord.nightBrush,
+            floss: todayRecord.floss,
+            mouthwash: todayRecord.mouthwash,
+          }
+        );
+      } catch {
+        // Notification bootstrap failure must never affect the app
+      }
+    })();
   }, [loading, state.settings.onboardingComplete]);
 
-  // Reschedule reminders whenever today's task completion or reminder times change.
-  // This ensures the night reminder always mentions the tasks still pending.
+  // Reschedule night reminder when task completions or reminder times change
   const prevFloss = useRef(todayRecord.floss);
   const prevMouthwash = useRef(todayRecord.mouthwash);
   const prevMorning = useRef(todayRecord.morningBrush);
@@ -53,7 +71,7 @@ function RootLayoutNav() {
   const prevNightTime = useRef(state.settings.nightReminderTime);
 
   useEffect(() => {
-    if (loading || !state.settings.onboardingComplete) return;
+    if (loading || !state.settings.onboardingComplete || !notifBootstrapped.current) return;
 
     const tasksChanged =
       prevFloss.current !== todayRecord.floss ||
@@ -65,25 +83,26 @@ function RootLayoutNav() {
       prevMorningTime.current !== state.settings.morningReminderTime ||
       prevNightTime.current !== state.settings.nightReminderTime;
 
-    if (tasksChanged || timesChanged) {
-      prevFloss.current = todayRecord.floss;
-      prevMouthwash.current = todayRecord.mouthwash;
-      prevMorning.current = todayRecord.morningBrush;
-      prevNight.current = todayRecord.nightBrush;
-      prevMorningTime.current = state.settings.morningReminderTime;
-      prevNightTime.current = state.settings.nightReminderTime;
+    if (!tasksChanged && !timesChanged) return;
 
-      scheduleAllReminders(
-        state.settings.morningReminderTime,
-        state.settings.nightReminderTime,
-        {
-          morningBrush: todayRecord.morningBrush,
-          nightBrush: todayRecord.nightBrush,
-          floss: todayRecord.floss,
-          mouthwash: todayRecord.mouthwash,
-        }
-      );
-    }
+    prevFloss.current = todayRecord.floss;
+    prevMouthwash.current = todayRecord.mouthwash;
+    prevMorning.current = todayRecord.morningBrush;
+    prevNight.current = todayRecord.nightBrush;
+    prevMorningTime.current = state.settings.morningReminderTime;
+    prevNightTime.current = state.settings.nightReminderTime;
+
+    // Fire and forget — wrapped in try/catch inside scheduleAllReminders already
+    scheduleAllReminders(
+      state.settings.morningReminderTime,
+      state.settings.nightReminderTime,
+      {
+        morningBrush: todayRecord.morningBrush,
+        nightBrush: todayRecord.nightBrush,
+        floss: todayRecord.floss,
+        mouthwash: todayRecord.mouthwash,
+      }
+    ).catch(() => {});
   }, [
     todayRecord.morningBrush,
     todayRecord.nightBrush,
