@@ -16,7 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { TaskCard } from "@/components/TaskCard";
 import { StreakDisplay } from "@/components/StreakDisplay";
-import { XPBar } from "@/components/XPBar";
+import { ProgressRing } from "@/components/ProgressRing";
 import { getMotivationalMessage } from "@/constants/motivational";
 import { todayString } from "@/services/streakService";
 
@@ -34,20 +34,23 @@ export default function HomeScreen() {
   useEffect(() => {
     if (newBadges.length > 0) {
       const badgeId = newBadges[0];
-      Alert.alert("Badge Unlocked!", `You earned a new badge: ${badgeId.replace(/_/g, " ")}`);
+      Alert.alert("Badge Unlocked!", `You earned: ${badgeId.replace(/_/g, " ")}`);
       clearNewBadges();
     }
   }, [newBadges]);
 
-  const completionCount = [
-    todayRecord.morningBrush,
-    todayRecord.nightBrush,
-    todayRecord.floss,
-    todayRecord.mouthwash,
-  ].filter(Boolean).length;
+  const tasks = [
+    { label: "Morning Brush", icon: "sunny-outline", done: todayRecord.morningBrush },
+    { label: "Night Brush", icon: "moon-outline", done: todayRecord.nightBrush },
+    { label: "Floss", icon: "fitness-outline", done: todayRecord.floss },
+    { label: "Mouthwash", icon: "water-outline", done: todayRecord.mouthwash },
+  ];
 
-  const totalTasks = 4;
-  const allDone = completionCount === totalTasks;
+  const completionCount = tasks.filter((t) => t.done).length;
+  const allDone = completionCount === tasks.length;
+
+  const morningDone = todayRecord.morningBrush;
+  const nightDone = todayRecord.nightBrush;
 
   const handleBrushNow = (session: "morning" | "night") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -58,11 +61,12 @@ export default function HomeScreen() {
     router.push(`/missed-reflection?session=${session}`);
   };
 
-  const dayOfWeek = new Date().toLocaleDateString("en-US", { weekday: "long" });
-  const dateStr = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-  });
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  })();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -76,79 +80,212 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.day, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              {dayOfWeek}
+            <Text
+              style={[
+                styles.greeting,
+                { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+              ]}
+            >
+              {greeting}
             </Text>
-            <Text style={[styles.date, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              {dateStr}
+            <Text
+              style={[
+                styles.subtitle,
+                { color: colors.foreground, fontFamily: "Inter_700Bold" },
+              ]}
+            >
+              {completionCount}/{tasks.length} tasks completed today
             </Text>
           </View>
-          <View style={[styles.completionPill, { backgroundColor: allDone ? colors.primary + "22" : colors.card }]}>
-            <Text style={[styles.completionText, { color: allDone ? colors.primary : colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
-              {completionCount}/{totalTasks}
+          <TouchableOpacity
+            style={[
+              styles.smilePill,
+              { backgroundColor: colors.gold + "18", borderColor: colors.gold + "33" },
+            ]}
+            onPress={() => router.push("/shop")}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 14 }}>😊</Text>
+            <Text
+              style={[
+                styles.smileCount,
+                { color: colors.gold, fontFamily: "Inter_700Bold" },
+              ]}
+            >
+              {state.smilePoints}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Comeback Mode Banner */}
+        {/* Comeback Banner */}
         {state.isComeback && (
-          <View style={[styles.comebackBanner, { backgroundColor: colors.warning + "22", borderColor: colors.warning + "44" }]}>
-            <Ionicons name="refresh-circle" size={20} color={colors.warning} />
-            <Text style={[styles.comebackText, { color: colors.warning, fontFamily: "Inter_600SemiBold" }]}>
-              Comeback Mode — rebuild your streak today
+          <View
+            style={[
+              styles.banner,
+              { backgroundColor: colors.warning + "18", borderColor: colors.warning + "33" },
+            ]}
+          >
+            <Ionicons name="refresh-circle" size={18} color={colors.warning} />
+            <Text
+              style={[
+                styles.bannerText,
+                { color: colors.warning, fontFamily: "Inter_600SemiBold" },
+              ]}
+            >
+              Welcome back — let's restart your streak today.
             </Text>
           </View>
         )}
 
-        {/* All Done Banner */}
+        {/* All done banner */}
         {allDone && (
-          <View style={[styles.allDoneBanner, { backgroundColor: colors.primary + "22", borderColor: colors.primary + "44" }]}>
-            <Ionicons name="sparkles" size={20} color={colors.primary} />
-            <Text style={[styles.allDoneText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
-              Perfect day! All tasks complete.
+          <View
+            style={[
+              styles.banner,
+              { backgroundColor: colors.primary + "18", borderColor: colors.primary + "33" },
+            ]}
+          >
+            <Ionicons name="sparkles" size={18} color={colors.primary} />
+            <Text
+              style={[
+                styles.bannerText,
+                { color: colors.primary, fontFamily: "Inter_600SemiBold" },
+              ]}
+            >
+              Full care day complete. Streak protected.
             </Text>
           </View>
         )}
 
-        {/* Motivational message */}
-        <Text style={[styles.motivational, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-          {motivationalMsg}
-        </Text>
+        {/* Progress Ring + Streak card */}
+        <View style={[styles.centerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {/* Progress ring */}
+          <View style={styles.ringRow}>
+            <ProgressRing tasks={tasks} size={168} />
+            <View style={styles.ringTaskList}>
+              {tasks.map((task, i) => (
+                <View key={i} style={styles.ringTask}>
+                  <Ionicons
+                    name={task.done ? "checkmark-circle" : "ellipse-outline"}
+                    size={16}
+                    color={task.done ? colors.primary : colors.border}
+                  />
+                  <Text
+                    style={[
+                      styles.ringTaskLabel,
+                      {
+                        color: task.done ? colors.foreground : colors.mutedForeground,
+                        fontFamily: task.done ? "Inter_500Medium" : "Inter_400Regular",
+                      },
+                    ]}
+                  >
+                    {task.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
 
-        {/* Streaks */}
-        <StreakDisplay
-          brushingStreak={state.brushingStreak}
-          fullCareStreak={state.fullCareStreak}
-        />
+          {/* Divider */}
+          <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
 
-        {/* XP Bar */}
-        <View style={{ marginTop: 12 }}>
-          <XPBar xp={state.xp} compact />
+          {/* Streaks */}
+          <StreakDisplay
+            brushingStreak={state.brushingStreak}
+            fullCareStreak={state.fullCareStreak}
+            compact
+          />
+
+          {/* Motivational */}
+          <Text
+            style={[
+              styles.motivational,
+              { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+            ]}
+          >
+            {motivationalMsg}
+          </Text>
         </View>
 
-        {/* Today's Tasks */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+        {/* Primary CTA */}
+        {!morningDone && (
+          <TouchableOpacity
+            style={[styles.primaryCTA, { backgroundColor: colors.primary }]}
+            onPress={() => handleBrushNow("morning")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="sunny" size={22} color={colors.primaryForeground} />
+            <Text
+              style={[
+                styles.primaryCTAText,
+                { color: colors.primaryForeground, fontFamily: "Inter_700Bold" },
+              ]}
+            >
+              Start Morning Brush
+            </Text>
+            <View
+              style={[
+                styles.ctaLockBadge,
+                { backgroundColor: "rgba(255,255,255,0.2)" },
+              ]}
+            >
+              <Ionicons name="lock-closed" size={12} color={colors.primaryForeground} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {morningDone && !nightDone && (
+          <TouchableOpacity
+            style={[styles.primaryCTA, { backgroundColor: colors.primary }]}
+            onPress={() => handleBrushNow("night")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="moon" size={22} color={colors.primaryForeground} />
+            <Text
+              style={[
+                styles.primaryCTAText,
+                { color: colors.primaryForeground, fontFamily: "Inter_700Bold" },
+              ]}
+            >
+              Start Night Brush
+            </Text>
+            <View
+              style={[
+                styles.ctaLockBadge,
+                { backgroundColor: "rgba(255,255,255,0.2)" },
+              ]}
+            >
+              <Ionicons name="lock-closed" size={12} color={colors.primaryForeground} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Today's Tasks section */}
+        <Text
+          style={[
+            styles.sectionTitle,
+            { color: colors.foreground, fontFamily: "Inter_600SemiBold" },
+          ]}
+        >
           Today's Routine
         </Text>
 
         <TaskCard
           title="Morning Brush"
-          subtitle="2-3 min timer required"
+          subtitle="Full timer required"
           done={todayRecord.morningBrush}
           type="brush"
           onAction={() => handleBrushNow("morning")}
           iconName="sunny-outline"
         />
-
         <TaskCard
           title="Night Brush"
-          subtitle="2-3 min timer required"
+          subtitle="Full timer required"
           done={todayRecord.nightBrush}
           type="brush"
           onAction={() => handleBrushNow("night")}
           iconName="moon-outline"
         />
-
         <TaskCard
           title="Floss"
           subtitle="Once per day"
@@ -157,7 +294,6 @@ export default function HomeScreen() {
           onAction={completeFloss}
           iconName="fitness-outline"
         />
-
         <TaskCard
           title="Mouthwash"
           subtitle="Once per day"
@@ -167,25 +303,38 @@ export default function HomeScreen() {
           iconName="water-outline"
         />
 
-        {/* Extra Brush CTA */}
+        {/* Extra brush */}
         <TouchableOpacity
-          style={[styles.extraBrushBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[
+            styles.extraBtn,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
           onPress={() => router.push("/timer?session=extra")}
           activeOpacity={0.8}
         >
-          <Ionicons name="add-circle-outline" size={20} color={colors.mutedForeground} />
-          <Text style={[styles.extraBrushText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+          <Ionicons name="add-circle-outline" size={18} color={colors.mutedForeground} />
+          <Text
+            style={[
+              styles.extraBtnText,
+              { color: colors.mutedForeground, fontFamily: "Inter_500Medium" },
+            ]}
+          >
             Log Extra Brush Session
           </Text>
-          <View style={[styles.tokenPill, { backgroundColor: colors.gold + "22" }]}>
-            <Ionicons name="shield-checkmark-outline" size={12} color={colors.gold} />
-            <Text style={[styles.tokenText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
-              +Token
+          <View style={[styles.tokenPill, { backgroundColor: colors.gold + "1a" }]}>
+            <Ionicons name="shield-checkmark-outline" size={11} color={colors.gold} />
+            <Text
+              style={[
+                styles.tokenText,
+                { color: colors.gold, fontFamily: "Inter_600SemiBold" },
+              ]}
+            >
+              +Freeze Token
             </Text>
           </View>
         </TouchableOpacity>
 
-        {/* Missed Session */}
+        {/* Missed session buttons */}
         {(!todayRecord.morningBrush || !todayRecord.nightBrush) && (
           <View style={styles.missedRow}>
             {!todayRecord.morningBrush && (
@@ -193,8 +342,13 @@ export default function HomeScreen() {
                 style={[styles.missedBtn, { borderColor: colors.destructive + "44" }]}
                 onPress={() => handleMissedSession("morning")}
               >
-                <Ionicons name="alert-circle-outline" size={14} color={colors.destructive} />
-                <Text style={[styles.missedBtnText, { color: colors.destructive, fontFamily: "Inter_500Medium" }]}>
+                <Ionicons name="alert-circle-outline" size={13} color={colors.destructive} />
+                <Text
+                  style={[
+                    styles.missedText,
+                    { color: colors.destructive, fontFamily: "Inter_500Medium" },
+                  ]}
+                >
                   Missed morning
                 </Text>
               </TouchableOpacity>
@@ -204,8 +358,13 @@ export default function HomeScreen() {
                 style={[styles.missedBtn, { borderColor: colors.destructive + "44" }]}
                 onPress={() => handleMissedSession("night")}
               >
-                <Ionicons name="alert-circle-outline" size={14} color={colors.destructive} />
-                <Text style={[styles.missedBtnText, { color: colors.destructive, fontFamily: "Inter_500Medium" }]}>
+                <Ionicons name="alert-circle-outline" size={13} color={colors.destructive} />
+                <Text
+                  style={[
+                    styles.missedText,
+                    { color: colors.destructive, fontFamily: "Inter_500Medium" },
+                  ]}
+                >
                   Missed night
                 </Text>
               </TouchableOpacity>
@@ -213,32 +372,43 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Stats footer */}
+        {/* Bottom stats */}
         <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
           <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+            <Text
+              style={[
+                styles.statNum,
+                { color: colors.foreground, fontFamily: "Inter_700Bold" },
+              ]}
+            >
               {state.totalFullDays}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Full Days
+            <Text
+              style={[
+                styles.statLabel,
+                { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+              ]}
+            >
+              Total Full Days
             </Text>
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              {state.freezeTokens}
+            <Text
+              style={[
+                styles.statNum,
+                { color: colors.foreground, fontFamily: "Inter_700Bold" },
+              ]}
+            >
+              {state.xp}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Freeze Tokens
-            </Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              {state.totalSessions}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Sessions
+            <Text
+              style={[
+                styles.statLabel,
+                { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+              ]}
+            >
+              XP Level {state.level}
             </Text>
           </View>
         </View>
@@ -248,69 +418,70 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 14,
-  },
+  container: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, gap: 12 },
   header: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  day: {
-    fontSize: 14,
     marginBottom: 2,
   },
-  date: {
-    fontSize: 24,
+  greeting: { fontSize: 14, marginBottom: 2 },
+  subtitle: { fontSize: 18 },
+  smilePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  completionPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  smileCount: { fontSize: 15 },
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  bannerText: { flex: 1, fontSize: 13 },
+  centerCard: {
     borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    gap: 14,
   },
-  completionText: {
-    fontSize: 16,
-  },
-  comebackBanner: {
+  ringRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    gap: 18,
   },
-  comebackText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  allDoneBanner: {
+  ringTaskList: { flex: 1, gap: 10 },
+  ringTask: { flexDirection: "row", alignItems: "center", gap: 8 },
+  ringTaskLabel: { fontSize: 13 },
+  cardDivider: { height: StyleSheet.hairlineWidth },
+  motivational: { fontSize: 13, fontStyle: "italic", lineHeight: 19 },
+  primaryCTA: {
+    height: 60,
+    borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 20,
   },
-  allDoneText: {
-    fontSize: 14,
-    flex: 1,
+  primaryCTAText: { fontSize: 18, flex: 1 },
+  ctaLockBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  motivational: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontStyle: "italic",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  extraBrushBtn: {
+  sectionTitle: { fontSize: 18, marginTop: 4 },
+  extraBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -318,26 +489,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-  extraBrushText: {
-    flex: 1,
-    fontSize: 14,
-  },
+  extraBtnText: { flex: 1, fontSize: 13 },
   tokenPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
+    gap: 3,
+    paddingHorizontal: 7,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 7,
   },
-  tokenText: {
-    fontSize: 11,
-  },
-  missedRow: {
-    flexDirection: "row",
-    gap: 10,
-    flexWrap: "wrap",
-  },
+  tokenText: { fontSize: 11 },
+  missedRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   missedBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -347,9 +509,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  missedBtnText: {
-    fontSize: 12,
-  },
+  missedText: { fontSize: 12 },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -358,18 +518,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     marginTop: 4,
   },
-  statItem: {
-    alignItems: "center",
-    gap: 2,
-  },
-  statNum: {
-    fontSize: 22,
-  },
-  statLabel: {
-    fontSize: 11,
-  },
-  divider: {
-    width: 1,
-    height: 32,
-  },
+  statItem: { alignItems: "center", gap: 2 },
+  statNum: { fontSize: 22 },
+  statLabel: { fontSize: 12 },
+  divider: { width: 1, height: 32 },
 });

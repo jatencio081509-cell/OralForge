@@ -54,6 +54,13 @@ function RootLayoutNav() {
           gestureEnabled: false,
         }}
       />
+      <Stack.Screen
+        name="shop"
+        options={{
+          headerShown: false,
+          presentation: "card",
+        }}
+      />
     </Stack>
   );
 }

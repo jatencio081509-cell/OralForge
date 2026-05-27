@@ -1,0 +1,238 @@
+The shop should feel like a reward extension of consistency, not a random mobile-game store.
+
+The biggest mistake would be filling it with useless junk.
+
+Your shop should mainly unlock:
+
+* personalization
+* motivation
+* satisfaction
+* progression identity
+
+NOT pay-to-win mechanics.
+
+⸻
+
+🏪 ORALSTREAK SHOP DESIGN
+
+🪙 Currency System
+
+Earn Points Through:
+
+* completing a full day
+* streak milestones
+* extra brushing sessions
+* weekly consistency
+* comeback recovery success
+
+Possible currency names:
+
+* Smile Points
+* Clean Coins
+* Oral XP
+* Mint Tokens
+* Streak Credits
+
+“Smile Points” probably fits best.
+
+⸻
+
+🧴 SHOP CATEGORIES
+
+⸻
+
+1. 🎨 THEMES (BEST CATEGORY)
+
+This will likely be your most-used shop feature.
+
+Examples:
+
+* Midnight Blue
+* Mint Green
+* Arctic White
+* Neon Clean
+* Sunset
+* Dark Mode Pro
+* Dentist Office Theme
+* Cyber Glow
+
+Themes change:
+
+* app colors
+* gradients
+* timer visuals
+* progress rings
+
+⸻
+
+2. 🔊 SOUND PACKS
+
+Subtle but satisfying.
+
+Examples:
+
+* Calm Chimes
+* Electric Pulse
+* Soft Tap
+* Retro Arcade
+* Nature Sounds
+* Futuristic Beeps
+
+Used for:
+
+* timer cues
+* completion sounds
+* streak celebrations
+
+⸻
+
+3. 💬 MOTIVATIONAL MESSAGE PACKS
+
+Unlock different “personalities” for the app.
+
+Examples:
+
+Discipline Pack
+
+* “Consistency beats motivation.”
+
+Friendly Pack
+
+* “Nice work today.”
+
+Coach Pack
+
+* “You showed up again.”
+
+Clinical Pack
+
+* “Daily plaque removal completed.”
+
+Funny Pack
+
+* “Your dentist would be proud.”
+
+⸻
+
+4. 🏅 PROFILE BADGE FRAMES
+
+Small cosmetic flex system.
+
+Examples:
+
+* Bronze
+* Silver
+* Gold
+* Diamond
+* Ice
+* Flame
+* Electric
+
+Shown:
+
+* around profile icon
+* streak card borders
+
+⸻
+
+5. ⏱ TIMER VISUAL STYLES
+
+Different timer appearances.
+
+Examples:
+
+* Circular minimalist
+* Radar pulse
+* Liquid fill
+* Segmented ring
+* Orbit animation
+
+⸻
+
+6. 🪥 TOOTHBRUSH COLLECTION
+
+Purely cosmetic collectible toothbrushes.
+
+Examples:
+
+* Sonic Blue
+* Gold Edition
+* Carbon Black
+* Neon Brush
+* Retro Brush
+* Crystal Brush
+
+These could appear:
+
+* on profile
+* during timer screen
+
+⸻
+
+7. 🌌 BACKGROUNDS
+
+Unlockable dashboard backgrounds.
+
+Examples:
+
+* Clean white
+* Ocean
+* Space
+* Forest
+* Minimal black
+* Gradient glow
+
+⸻
+
+8. 🔥 STREAK EFFECTS
+
+Tiny visual effects around streak numbers.
+
+Examples:
+
+* fire glow
+* electric sparks
+* icy aura
+* pulsing light
+
+Keep subtle—not cheesy.
+
+⸻
+
+9. 🎯 SPECIAL GOAL CARDS
+
+Unlock custom challenge cards:
+
+* “Perfect Week”
+* “30 Full Days”
+* “Night Brush Master”
+* “Floss King”
+
+⸻
+
+🚫 WHAT YOU SHOULD NOT ADD
+
+Avoid:
+
+* loot boxes
+* gambling mechanics
+* ads for rewards
+* fake currencies
+* pay-to-win boosts
+* streak buying
+
+That would ruin the app’s credibility.
+
+⸻
+
+💡 BEST SHOP PHILOSOPHY
+
+Your app should reward:
+
+“I became more consistent.”
+
+NOT:
+
+“I spent money.”
+
+The shop should visually reflect discipline and growth.

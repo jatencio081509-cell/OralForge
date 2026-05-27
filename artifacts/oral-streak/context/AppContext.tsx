@@ -48,6 +48,8 @@ export interface AppState {
   level: number;
   freezeTokens: number;
   points: number;
+  smilePoints: number;
+  purchasedItems: string[];
   settings: AppSettings;
   history: DayRecord[];
   unlockedBadges: string[];
@@ -75,12 +77,28 @@ const DEFAULT_STATE: AppState = {
   level: 1,
   freezeTokens: 0,
   points: 0,
+  smilePoints: 0,
+  purchasedItems: [],
   settings: DEFAULT_SETTINGS,
   history: [],
   unlockedBadges: [],
   isComeback: false,
   lastCheckedDate: "",
 };
+
+function getSmilePointsForAction(
+  action: "morning" | "night" | "floss" | "mouthwash" | "extra" | "fullDay"
+): number {
+  const map: Record<string, number> = {
+    morning: 10,
+    night: 10,
+    floss: 5,
+    mouthwash: 5,
+    extra: 5,
+    fullDay: 20,
+  };
+  return map[action] ?? 0;
+}
 
 interface AppContextValue {
   state: AppState;
@@ -97,6 +115,7 @@ interface AppContextValue {
   getMissedSessions: () => string[];
   newBadges: string[];
   clearNewBadges: () => void;
+  purchaseItem: (itemId: string, cost: number) => boolean;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -129,7 +148,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const saved = await loadState();
       if (saved) {
-        const initialized = checkDayTransition(saved);
+        // Migrate old saves that don't have smilePoints/purchasedItems
+        const migrated: AppState = {
+          ...DEFAULT_STATE,
+          ...saved,
+          smilePoints: (saved as any).smilePoints ?? saved.points ?? 0,
+          purchasedItems: (saved as any).purchasedItems ?? [],
+        };
+        const initialized = checkDayTransition(migrated);
         setState(initialized);
       }
       setLoading(false);
@@ -144,7 +170,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     let updated = { ...s };
 
-    // If we haven't checked yesterday, process it
     if (s.lastCheckedDate === yesterday || s.lastCheckedDate === "") {
       const yesterdayRecord = s.history.find((r) => r.date === yesterday) ?? null;
       const { brushingStreak, fullCareStreak } = updateStreaksForPreviousDay(
@@ -172,7 +197,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updated.isComeback = brushingBroken || (wasComeback && brushingStreak === 0);
     }
 
-    // Ensure today's record exists
     const todayRecord = updated.history.find((r) => r.date === today);
     if (!todayRecord) {
       updated.history = [...updated.history, createTodayRecord()];
@@ -250,8 +274,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newStatus = calculateDayStatus(updatedRecord);
 
       let extraXP = 0;
+      let extraSP = 0;
       if (newStatus === "complete") {
         extraXP = getXPForAction("fullDay");
+        extraSP = getSmilePointsForAction("fullDay");
       }
 
       const finalRecord = { ...updatedRecord, status: newStatus };
@@ -263,7 +289,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newState: AppState = {
         ...prev,
         ...xpData,
-        xp: (prev.xp + getXPForAction("morning") + extraXP),
+        xp: prev.xp + getXPForAction("morning") + extraXP,
+        smilePoints: prev.smilePoints + getSmilePointsForAction("morning") + extraSP,
         totalSessions: newSessions,
         totalFullDays: newStatus === "complete" ? prev.totalFullDays + 1 : prev.totalFullDays,
         isComeback: newStatus === "complete" ? false : prev.isComeback,
@@ -285,16 +312,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newStatus = calculateDayStatus(updatedRecord);
 
       let extraXP = 0;
+      let extraSP = 0;
       let newTotalFullDays = prev.totalFullDays;
       if (newStatus === "complete" && !existing.nightBrush) {
         const wasComplete = calculateDayStatus(existing) === "complete";
         if (!wasComplete) {
           extraXP = getXPForAction("fullDay");
+          extraSP = getSmilePointsForAction("fullDay");
           newTotalFullDays = prev.totalFullDays + 1;
         }
       }
 
-      // Update brushing streak for today
       const todayHasMorning = existing.morningBrush;
       const newBrushingStreak = todayHasMorning ? prev.brushingStreak + 1 : prev.brushingStreak;
       const newFullCareStreak = newStatus === "complete" ? prev.fullCareStreak + 1 : prev.fullCareStreak;
@@ -309,6 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         ...xpData,
         xp: prev.xp + getXPForAction("night") + extraXP,
+        smilePoints: prev.smilePoints + getSmilePointsForAction("night") + extraSP,
         totalSessions: newSessions,
         totalFullDays: newTotalFullDays,
         brushingStreak: newBrushingStreak,
@@ -331,11 +360,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newStatus = calculateDayStatus(updatedRecord);
 
       let extraXP = 0;
+      let extraSP = 0;
       let newTotalFullDays = prev.totalFullDays;
       if (newStatus === "complete") {
         const wasComplete = calculateDayStatus(existing) === "complete";
         if (!wasComplete) {
           extraXP = getXPForAction("fullDay");
+          extraSP = getSmilePointsForAction("fullDay");
           newTotalFullDays = prev.totalFullDays + 1;
         }
       }
@@ -350,6 +381,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         ...xpData,
         xp: prev.xp + getXPForAction("floss") + extraXP,
+        smilePoints: prev.smilePoints + getSmilePointsForAction("floss") + extraSP,
         totalFullDays: newTotalFullDays,
         history: newHistory,
       };
@@ -368,11 +400,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newStatus = calculateDayStatus(updatedRecord);
 
       let extraXP = 0;
+      let extraSP = 0;
       let newTotalFullDays = prev.totalFullDays;
       if (newStatus === "complete") {
         const wasComplete = calculateDayStatus(existing) === "complete";
         if (!wasComplete) {
           extraXP = getXPForAction("fullDay");
+          extraSP = getSmilePointsForAction("fullDay");
           newTotalFullDays = prev.totalFullDays + 1;
         }
       }
@@ -387,6 +421,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         ...xpData,
         xp: prev.xp + getXPForAction("mouthwash") + extraXP,
+        smilePoints: prev.smilePoints + getSmilePointsForAction("mouthwash") + extraSP,
         totalFullDays: newTotalFullDays,
         history: newHistory,
       };
@@ -411,6 +446,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         ...xpData,
         xp: prev.xp + getXPForAction("extra"),
+        smilePoints: prev.smilePoints + getSmilePointsForAction("extra"),
         extraBrushesTotal: prev.extraBrushesTotal + 1,
         freezeTokens: prev.freezeTokens + 1,
         history: newHistory,
@@ -467,6 +503,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNewBadges([]);
   }, []);
 
+  const purchaseItem = useCallback((itemId: string, cost: number): boolean => {
+    let success = false;
+    setState((prev) => {
+      if (prev.smilePoints < cost) return prev;
+      if (prev.purchasedItems.includes(itemId)) return prev;
+      success = true;
+      const newState: AppState = {
+        ...prev,
+        smilePoints: prev.smilePoints - cost,
+        purchasedItems: [...prev.purchasedItems, itemId],
+      };
+      saveState(newState);
+      return newState;
+    });
+    return success;
+  }, []);
+
   const todayRecord = (() => {
     const today = todayString();
     return state.history.find((r) => r.date === today) ?? createTodayRecord();
@@ -489,6 +542,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getMissedSessions,
         newBadges,
         clearNewBadges,
+        purchaseItem,
       }}
     >
       {children}
