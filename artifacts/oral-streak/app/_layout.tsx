@@ -30,7 +30,7 @@ function RootLayoutNav() {
   }, [loading, state.settings.onboardingComplete]);
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#080f1e" } }}>
+    <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="timer"

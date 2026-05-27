@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,33 +13,35 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { formatTime12h } from "@/utils/timeFormat";
 
 const STEPS = ["welcome", "schedule", "timer", "ready"] as const;
 type Step = (typeof STEPS)[number];
 
-const PRESET_TIMES = [
+// Internal 24h values; displayed as 12h
+const WAKE_TIMES_24H = [
   "05:00", "05:30", "06:00", "06:30", "07:00",
   "07:30", "08:00", "08:30", "09:00",
 ];
 
-const SLEEP_TIMES = [
+const SLEEP_TIMES_24H = [
   "20:00", "20:30", "21:00", "21:30", "22:00",
   "22:30", "23:00", "23:30", "00:00",
 ];
 
 function TimeSelector({
-  times,
+  times24h,
   selected,
   onSelect,
 }: {
-  times: string[];
+  times24h: string[];
   selected: string;
   onSelect: (t: string) => void;
 }) {
   const colors = useColors();
   return (
     <View style={styles.timeGrid}>
-      {times.map((t) => {
+      {times24h.map((t) => {
         const isSelected = t === selected;
         return (
           <TouchableOpacity
@@ -65,7 +68,7 @@ function TimeSelector({
                 },
               ]}
             >
-              {t}
+              {formatTime12h(t)}
             </Text>
           </TouchableOpacity>
         );
@@ -124,31 +127,39 @@ export default function OnboardingScreen() {
     >
       {/* Progress bar */}
       <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
-        <View style={[styles.progressFill, { backgroundColor: colors.primary, width: `${progress * 100}%` as any }]} />
+        <View
+          style={[
+            styles.progressFill,
+            { backgroundColor: colors.primary, width: `${progress * 100}%` as any },
+          ]}
+        />
       </View>
 
-      {/* Content */}
-      <View style={styles.content}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {step === "welcome" && (
           <View style={styles.stepContent}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.primary + "22" }]}>
-              <Ionicons name="water" size={56} color={colors.primary} />
+            <View style={[styles.iconCircle, { backgroundColor: colors.secondary }]}>
+              <Ionicons name="water" size={52} color={colors.primary} />
             </View>
             <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               Welcome to OralStreak
             </Text>
             <Text style={[styles.stepDesc, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Build the world's most underrated habit — consistent oral hygiene. Strict tracking. Verified brushing. Real streaks.
+              Build the most underrated daily habit — consistent oral hygiene. Strict tracking. Verified brushing. Real streaks.
             </Text>
             <View style={styles.rulesList}>
               {[
                 { icon: "timer-outline", text: "Brushing requires a full timer — no shortcuts" },
                 { icon: "flame-outline", text: "Streaks break if you miss — no forgiveness" },
-                { icon: "trophy-outline", text: "Earn XP, badges, and freeze tokens" },
-                { icon: "calendar-outline", text: "Track your history with a habit calendar" },
+                { icon: "trophy-outline", text: "Earn XP and badges for consistency" },
+                { icon: "calendar-outline", text: "Track history with a full habit calendar" },
               ].map((rule, i) => (
-                <View key={i} style={styles.ruleRow}>
-                  <View style={[styles.ruleIcon, { backgroundColor: colors.card }]}>
+                <View key={i} style={[styles.ruleRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={[styles.ruleIcon, { backgroundColor: colors.secondary }]}>
                     <Ionicons name={rule.icon as any} size={16} color={colors.primary} />
                   </View>
                   <Text style={[styles.ruleText, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}>
@@ -166,14 +177,14 @@ export default function OnboardingScreen() {
               Set Your Schedule
             </Text>
             <Text style={[styles.stepDesc, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Choose your wake-up and bedtime. We'll set your reminders accordingly.
+              Choose your wake-up and bedtime. Reminders will be set accordingly.
             </Text>
 
             <Text style={[styles.timeLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
               Wake Time
             </Text>
             <TimeSelector
-              times={PRESET_TIMES}
+              times24h={WAKE_TIMES_24H}
               selected={wakeTime}
               onSelect={setWakeTime}
             />
@@ -182,7 +193,7 @@ export default function OnboardingScreen() {
               Bedtime
             </Text>
             <TimeSelector
-              times={SLEEP_TIMES}
+              times24h={SLEEP_TIMES_24H}
               selected={sleepTime}
               onSelect={setSleepTime}
             />
@@ -195,7 +206,7 @@ export default function OnboardingScreen() {
               Brushing Timer
             </Text>
             <Text style={[styles.stepDesc, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Dentists recommend 2 minutes. Go for 3 if you want that extra clean. This cannot be changed mid-session.
+              Dentists recommend 2 minutes. Go for 3 if you want that extra clean. The timer must fully complete — no skipping.
             </Text>
 
             <View style={styles.timerOptions}>
@@ -217,15 +228,48 @@ export default function OnboardingScreen() {
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.timerMins, { color: isSelected ? colors.primaryForeground : colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                    <Text
+                      style={[
+                        styles.timerMins,
+                        {
+                          color: isSelected ? colors.primaryForeground : colors.foreground,
+                          fontFamily: "Inter_700Bold",
+                        },
+                      ]}
+                    >
                       {mins}
                     </Text>
-                    <Text style={[styles.timerUnit, { color: isSelected ? colors.primaryForeground : colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    <Text
+                      style={[
+                        styles.timerUnit,
+                        {
+                          color: isSelected ? colors.primaryForeground : colors.mutedForeground,
+                          fontFamily: "Inter_400Regular",
+                        },
+                      ]}
+                    >
                       minutes
                     </Text>
                     {mins === 2 && (
-                      <View style={[styles.recBadge, { backgroundColor: isSelected ? colors.primaryForeground + "22" : colors.primary + "22" }]}>
-                        <Text style={[styles.recText, { color: isSelected ? colors.primaryForeground : colors.primary, fontFamily: "Inter_600SemiBold" }]}>
+                      <View
+                        style={[
+                          styles.recBadge,
+                          {
+                            backgroundColor: isSelected
+                              ? "rgba(255,255,255,0.25)"
+                              : colors.secondary,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.recText,
+                            {
+                              color: isSelected ? colors.primaryForeground : colors.primary,
+                              fontFamily: "Inter_600SemiBold",
+                            },
+                          ]}
+                        >
                           Recommended
                         </Text>
                       </View>
@@ -239,51 +283,54 @@ export default function OnboardingScreen() {
 
         {step === "ready" && (
           <View style={styles.stepContent}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.primary + "22" }]}>
-              <Ionicons name="checkmark-circle" size={56} color={colors.primary} />
+            <View style={[styles.iconCircle, { backgroundColor: colors.secondary }]}>
+              <Ionicons name="checkmark-circle" size={52} color={colors.primary} />
             </View>
             <Text style={[styles.stepTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               You're All Set
             </Text>
             <Text style={[styles.stepDesc, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Your journey to perfect oral health starts now. Brush twice daily, floss, and use mouthwash to keep your streak alive.
+              Your journey to better oral health starts today. Brush twice daily, floss, and use mouthwash to keep your streak alive.
             </Text>
 
             <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.summaryRow}>
-                <Ionicons name="sunny-outline" size={16} color={colors.primary} />
-                <Text style={[styles.summaryText, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}>
-                  Morning reminder at {wakeTime}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Ionicons name="moon-outline" size={16} color={colors.primary} />
-                <Text style={[styles.summaryText, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}>
-                  Night reminder at {sleepTime}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Ionicons name="timer-outline" size={16} color={colors.primary} />
-                <Text style={[styles.summaryText, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}>
-                  {timerDuration}-minute brushing timer
-                </Text>
-              </View>
+              {[
+                { icon: "sunny-outline", text: `Morning reminder at ${formatTime12h(wakeTime)}` },
+                { icon: "moon-outline", text: `Night reminder at ${formatTime12h(sleepTime)}` },
+                { icon: "timer-outline", text: `${timerDuration}-minute brushing timer` },
+              ].map((item, i) => (
+                <View key={i} style={styles.summaryRow}>
+                  <Ionicons name={item.icon as any} size={16} color={colors.primary} />
+                  <Text style={[styles.summaryText, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}>
+                    {item.text}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
         )}
-      </View>
+      </ScrollView>
 
       {/* CTA */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: bottomPad > 0 ? 0 : 16 }]}>
         <TouchableOpacity
           style={[styles.nextBtn, { backgroundColor: colors.primary }]}
           onPress={step === "ready" ? handleFinish : goNext}
           activeOpacity={0.85}
         >
-          <Text style={[styles.nextBtnText, { color: colors.primaryForeground, fontFamily: "Inter_700Bold" }]}>
+          <Text
+            style={[
+              styles.nextBtnText,
+              { color: colors.primaryForeground, fontFamily: "Inter_700Bold" },
+            ]}
+          >
             {step === "ready" ? "Start OralStreak" : "Continue"}
           </Text>
-          <Ionicons name={step === "ready" ? "checkmark" : "arrow-forward"} size={20} color={colors.primaryForeground} />
+          <Ionicons
+            name={step === "ready" ? "checkmark" : "arrow-forward"}
+            size={20}
+            color={colors.primaryForeground}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -294,21 +341,48 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   progressTrack: { height: 4, marginHorizontal: 24, borderRadius: 2, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 2 },
-  content: { flex: 1, paddingHorizontal: 24, paddingTop: 28 },
+  content: { paddingHorizontal: 24, paddingTop: 28, paddingBottom: 16 },
   stepContent: { gap: 16 },
-  iconCircle: { width: 88, height: 88, borderRadius: 44, alignItems: "center", justifyContent: "center", alignSelf: "center" },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+  },
   stepTitle: { fontSize: 28, lineHeight: 34 },
   stepDesc: { fontSize: 15, lineHeight: 22 },
   rulesList: { gap: 10 },
-  ruleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  ruleIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  ruleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  ruleIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   ruleText: { flex: 1, fontSize: 14 },
-  timeLabel: { fontSize: 16, marginBottom: -8 },
+  timeLabel: { fontSize: 16, marginBottom: -4 },
   timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  timeOption: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  timeOption: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, borderWidth: 1 },
   timeOptionText: { fontSize: 14 },
   timerOptions: { flexDirection: "row", gap: 14 },
-  timerOption: { flex: 1, padding: 20, borderRadius: 18, borderWidth: 2, alignItems: "center", gap: 4 },
+  timerOption: {
+    flex: 1,
+    padding: 20,
+    borderRadius: 18,
+    borderWidth: 2,
+    alignItems: "center",
+    gap: 4,
+  },
   timerMins: { fontSize: 48 },
   timerUnit: { fontSize: 14 },
   recBadge: { marginTop: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
@@ -316,7 +390,14 @@ const styles = StyleSheet.create({
   summaryCard: { borderRadius: 16, borderWidth: 1, padding: 16, gap: 12 },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   summaryText: { fontSize: 14 },
-  footer: { paddingHorizontal: 24, paddingTop: 16 },
-  nextBtn: { height: 56, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  footer: { paddingHorizontal: 24, paddingTop: 12 },
+  nextBtn: {
+    height: 56,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
   nextBtnText: { fontSize: 18 },
 });

@@ -4,9 +4,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -15,100 +13,119 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { clearState } from "@/services/storageService";
+import { formatTime12h } from "@/utils/timeFormat";
 
-function SettingRow({
-  label,
-  value,
-  onPress,
-  icon,
-  iconColor,
-}: {
-  label: string;
-  value?: string;
-  onPress?: () => void;
-  icon: string;
-  iconColor?: string;
-}) {
-  const colors = useColors();
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[styles.settingRow, { borderBottomColor: colors.border }]}
-      activeOpacity={onPress ? 0.7 : 1}
-    >
-      <View style={[styles.settingIcon, { backgroundColor: (iconColor ?? colors.primary) + "22" }]}>
-        <Ionicons name={icon as any} size={18} color={iconColor ?? colors.primary} />
-      </View>
-      <Text style={[styles.settingLabel, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
-        {label}
-      </Text>
-      <View style={styles.settingRight}>
-        {value && (
-          <Text style={[styles.settingValue, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            {value}
-          </Text>
-        )}
-        {onPress && (
-          <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-}
+// 24h values displayed as 12h
+const MORNING_TIMES = [
+  "05:00", "05:30", "06:00", "06:30", "07:00",
+  "07:30", "08:00", "08:30", "09:00",
+];
+const NIGHT_TIMES = [
+  "19:00", "19:30", "20:00", "20:30", "21:00",
+  "21:30", "22:00", "22:30", "23:00",
+];
 
-function TimePickerRow({
+function TimePicker({
   label,
   icon,
   value,
+  options,
   onChange,
 }: {
   label: string;
   icon: string;
   value: string;
+  options: string[];
   onChange: (v: string) => void;
 }) {
   const colors = useColors();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  const save = () => {
-    if (/^\d{2}:\d{2}$/.test(draft)) {
-      onChange(draft);
-    } else {
-      setDraft(value);
-    }
-    setEditing(false);
-  };
+  const [open, setOpen] = useState(false);
 
   return (
+    <View>
+      <TouchableOpacity
+        style={[styles.settingRow, { borderBottomColor: open ? "transparent" : colors.border }]}
+        onPress={() => setOpen((o) => !o)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.settingIcon, { backgroundColor: colors.secondary }]}>
+          <Ionicons name={icon as any} size={17} color={colors.primary} />
+        </View>
+        <Text style={[styles.settingLabel, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+          {label}
+        </Text>
+        <View style={styles.settingRight}>
+          <Text style={[styles.settingValue, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
+            {formatTime12h(value)}
+          </Text>
+          <Ionicons
+            name={open ? "chevron-up" : "chevron-down"}
+            size={14}
+            color={colors.mutedForeground}
+          />
+        </View>
+      </TouchableOpacity>
+      {open && (
+        <View style={[styles.timeGrid, { borderBottomColor: colors.border }]}>
+          {options.map((t) => {
+            const isSelected = t === value;
+            return (
+              <TouchableOpacity
+                key={t}
+                style={[
+                  styles.timeChip,
+                  {
+                    backgroundColor: isSelected ? colors.primary : colors.muted,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => { onChange(t); setOpen(false); }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.timeChipText,
+                    {
+                      color: isSelected ? colors.primaryForeground : colors.foreground,
+                      fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_400Regular",
+                    },
+                  ]}
+                >
+                  {formatTime12h(t)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function SettingRow({
+  label,
+  value,
+  icon,
+  iconColor,
+}: {
+  label: string;
+  value?: string;
+  icon: string;
+  iconColor?: string;
+}) {
+  const colors = useColors();
+  return (
     <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
-      <View style={[styles.settingIcon, { backgroundColor: colors.primary + "22" }]}>
-        <Ionicons name={icon as any} size={18} color={colors.primary} />
+      <View style={[styles.settingIcon, { backgroundColor: (iconColor ?? colors.primary) + "18" }]}>
+        <Ionicons name={icon as any} size={17} color={iconColor ?? colors.primary} />
       </View>
       <Text style={[styles.settingLabel, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
         {label}
       </Text>
-      {editing ? (
-        <View style={styles.editRow}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            keyboardType="numbers-and-punctuation"
-            style={[styles.timeInput, { color: colors.foreground, borderColor: colors.primary, fontFamily: "Inter_500Medium" }]}
-            placeholder="HH:MM"
-            placeholderTextColor={colors.mutedForeground}
-            maxLength={5}
-            autoFocus
-            onBlur={save}
-            onSubmitEditing={save}
-          />
-        </View>
-      ) : (
-        <TouchableOpacity onPress={() => setEditing(true)}>
-          <Text style={[styles.settingValue, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
-            {value}
-          </Text>
-        </TouchableOpacity>
+      {value && (
+        <Text style={[styles.settingValue, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+          {value}
+        </Text>
       )}
     </View>
   );
@@ -160,12 +177,12 @@ export default function SettingsScreen() {
           TIMER
         </Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
-            <View style={[styles.settingIcon, { backgroundColor: colors.primary + "22" }]}>
-              <Ionicons name="timer-outline" size={18} color={colors.primary} />
+          <View style={[styles.settingRow, { borderBottomColor: "transparent" }]}>
+            <View style={[styles.settingIcon, { backgroundColor: colors.secondary }]}>
+              <Ionicons name="timer-outline" size={17} color={colors.primary} />
             </View>
             <Text style={[styles.settingLabel, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
-              Timer Duration
+              Duration
             </Text>
             <View style={styles.timerToggle}>
               {([2, 3] as const).map((mins) => (
@@ -174,7 +191,8 @@ export default function SettingsScreen() {
                   style={[
                     styles.timerOption,
                     {
-                      backgroundColor: settings.timerDuration === mins ? colors.primary : colors.surface,
+                      backgroundColor:
+                        settings.timerDuration === mins ? colors.primary : colors.muted,
                     },
                   ]}
                   onPress={() => updateSettings({ timerDuration: mins })}
@@ -183,12 +201,15 @@ export default function SettingsScreen() {
                     style={[
                       styles.timerOptionText,
                       {
-                        color: settings.timerDuration === mins ? colors.primaryForeground : colors.mutedForeground,
+                        color:
+                          settings.timerDuration === mins
+                            ? colors.primaryForeground
+                            : colors.mutedForeground,
                         fontFamily: "Inter_600SemiBold",
                       },
                     ]}
                   >
-                    {mins}m
+                    {mins} min
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -196,73 +217,94 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Schedule */}
+        {/* Reminders */}
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
-          SCHEDULE
+          REMINDERS
         </Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <TimePickerRow
-            label="Wake Time"
+          <TimePicker
+            label="Morning"
             icon="sunny-outline"
-            value={settings.wakeTime}
-            onChange={(v) => updateSettings({ wakeTime: v, morningReminderTime: v })}
-          />
-          <TimePickerRow
-            label="Sleep Time"
-            icon="moon-outline"
-            value={settings.sleepTime}
-            onChange={(v) => updateSettings({ sleepTime: v, nightReminderTime: v })}
-          />
-          <TimePickerRow
-            label="Morning Reminder"
-            icon="notifications-outline"
             value={settings.morningReminderTime}
-            onChange={(v) => updateSettings({ morningReminderTime: v })}
+            options={MORNING_TIMES}
+            onChange={(v) => updateSettings({ morningReminderTime: v, wakeTime: v })}
           />
-          <TimePickerRow
-            label="Night Reminder"
-            icon="notifications-outline"
+          <TimePicker
+            label="Night"
+            icon="moon-outline"
             value={settings.nightReminderTime}
-            onChange={(v) => updateSettings({ nightReminderTime: v })}
+            options={NIGHT_TIMES}
+            onChange={(v) => updateSettings({ nightReminderTime: v, sleepTime: v })}
           />
         </View>
 
-        {/* App info */}
+        {/* Behavior */}
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
-          APP
+          BEHAVIOR RULES
         </Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
+            <View style={[styles.settingIcon, { backgroundColor: colors.secondary }]}>
+              <Ionicons name="shield-checkmark-outline" size={17} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingLabel, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                Strict Streak Mode
+              </Text>
+              <Text style={[styles.settingSubLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                Streak breaks if any brushing is missed
+              </Text>
+            </View>
+            <View style={[styles.onBadge, { backgroundColor: colors.primary + "18" }]}>
+              <Text style={[styles.onText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>ON</Text>
+            </View>
+          </View>
+          <View style={[styles.settingRow, { borderBottomColor: "transparent" }]}>
+            <View style={[styles.settingIcon, { backgroundColor: colors.secondary }]}>
+              <Ionicons name="refresh-circle-outline" size={17} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingLabel, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                Comeback Mode
+              </Text>
+              <Text style={[styles.settingSubLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                Softer reminders after a broken streak
+              </Text>
+            </View>
+            <View style={[styles.onBadge, { backgroundColor: colors.primary + "18" }]}>
+              <Text style={[styles.onText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>ON</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Stats */}
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
+          YOUR PROGRESS
+        </Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SettingRow label="Total XP" value={`${state.xp} XP`} icon="star-outline" iconColor={colors.gold} />
+          <SettingRow label="Badges Unlocked" value={`${state.unlockedBadges.length} / 10`} icon="ribbon-outline" />
+          <SettingRow label="Total Sessions" value={`${state.totalSessions}`} icon="analytics-outline" />
           <SettingRow
-            label="Total XP"
-            value={`${state.xp} XP`}
-            icon="star-outline"
-            iconColor={colors.gold}
-          />
-          <SettingRow
-            label="Badges Unlocked"
-            value={`${state.unlockedBadges.length} / 10`}
-            icon="ribbon-outline"
-            iconColor={colors.primary}
-          />
-          <SettingRow
-            label="Total Sessions"
-            value={`${state.totalSessions}`}
-            icon="analytics-outline"
+            label="Offline Storage"
+            value="Active"
+            icon="cloud-offline-outline"
+            iconColor={colors.accent}
           />
         </View>
 
-        {/* Danger zone */}
+        {/* Danger */}
         <Text style={[styles.sectionLabel, { color: colors.destructive, fontFamily: "Inter_600SemiBold" }]}>
           DANGER ZONE
         </Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity
-            style={styles.dangerRow}
+            style={[styles.settingRow, { borderBottomColor: "transparent" }]}
             onPress={handleResetData}
             activeOpacity={0.7}
           >
-            <View style={[styles.settingIcon, { backgroundColor: colors.destructive + "22" }]}>
-              <Ionicons name="trash-outline" size={18} color={colors.destructive} />
+            <View style={[styles.settingIcon, { backgroundColor: colors.destructive + "18" }]}>
+              <Ionicons name="trash-outline" size={17} color={colors.destructive} />
             </View>
             <Text style={[styles.settingLabel, { color: colors.destructive, fontFamily: "Inter_500Medium" }]}>
               Reset All Data
@@ -271,7 +313,6 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Version */}
         <Text style={[styles.version, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
           OralStreak v1.0.0
         </Text>
@@ -284,37 +325,40 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, gap: 8 },
   pageTitle: { fontSize: 28, marginBottom: 8 },
-  sectionLabel: { fontSize: 12, letterSpacing: 1, marginTop: 8, marginLeft: 4 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.8, marginTop: 8, marginLeft: 4 },
   card: { borderRadius: 18, borderWidth: 1, overflow: "hidden" },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  settingIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  settingIcon: { width: 34, height: 34, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   settingLabel: { flex: 1, fontSize: 15 },
+  settingSubLabel: { fontSize: 12, marginTop: 1 },
   settingRight: { flexDirection: "row", alignItems: "center", gap: 4 },
   settingValue: { fontSize: 14 },
   timerToggle: { flexDirection: "row", gap: 6 },
   timerOption: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   timerOptionText: { fontSize: 13 },
-  editRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  timeInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    fontSize: 15,
-    minWidth: 60,
-    textAlign: "center",
-  },
-  dangerRow: {
+  timeGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    gap: 12,
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  timeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9,
+    borderWidth: 1,
+  },
+  timeChipText: { fontSize: 13 },
+  onBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  onText: { fontSize: 12 },
   version: { textAlign: "center", fontSize: 12, marginTop: 8, paddingBottom: 8 },
 });

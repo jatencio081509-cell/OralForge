@@ -1,0 +1,315 @@
+ORALSTREAK — UI DESIGN SYSTEM
+
+🎨 Overall Style
+
+* Clean “health app” aesthetic (like Apple Health + Duolingo restraint)
+* White / soft blue / mint green accents
+* No heavy gamification clutter on main screens
+* Everything centers around one action: complete today
+
+Typography:
+
+* Large bold numbers for streaks
+* Simple sans-serif (Inter / SF Pro style)
+
+⸻
+
+🏠 1. HOME DASHBOARD (MAIN SCREEN)
+
+This is the most important screen in the app.
+
+Layout:
+
+Top Section
+
+* “Good Morning, Josh”
+* Small status line:
+    * “2/4 tasks completed today”
+
+⸻
+
+🔥 Streak Card (centerpiece)
+
+Big rounded card:
+
+* 🔥 Full Oral Streak: 12 days
+* 🦷 Brushing Streak: 18 days
+* Small line: “Keep today alive”
+
+⸻
+
+📊 Today Progress Ring
+
+Circular progress ring showing:
+
+* Brushing AM ✔ / ❌
+* Brushing PM ✔ / ❌
+* Floss ✔ / ❌
+* Mouthwash ✔ / ❌
+
+⸻
+
+🟢 PRIMARY BUTTON (very large)
+
+“Start Brushing”
+
+* Takes user into timer
+* Locked action (must complete timer)
+
+⸻
+
+Bottom Quick Stats
+
+* “Total Full Days: 43”
+* “XP Level: 6”
+
+⸻
+
+⏱ 2. TIMER SCREEN (CORE EXPERIENCE)
+
+This is your “make or break” screen.
+
+Layout:
+
+Full Screen Focus Mode
+
+* Dark or calming gradient background
+* No distractions
+
+⸻
+
+Center:
+
+Big circular timer:
+
+* 2:00 or 3:00 countdown
+* segmented progress ring
+
+⸻
+
+Section guide (visual, not text-heavy):
+
+* Quadrant animation (mouth sections lighting up every 30 sec)
+
+⸻
+
+Bottom:
+
+* “Do not stop early”
+* Haptic pulse every 30 seconds
+* Soft sound cue toggle
+
+⸻
+
+Finish State:
+
+When completed:
+
+* “Great job. Brushing logged.”
+* XP + streak animation (subtle, not childish)
+
+⸻
+
+📊 3. INSIGHTS SCREEN
+
+Top:
+
+* “Your Oral Health Trends”
+
+⸻
+
+Cards:
+
+📅 Weekly Summary
+
+* 6/7 full days
+* 1 missed day
+
+⸻
+
+⚠️ Weak Habit Card
+
+* “You most often miss: Night brushing”
+
+⸻
+
+📈 Trend Graph
+
+* simple line graph:
+    * Full days over time
+
+⸻
+
+🧠 Insight Message
+
+* “Your consistency improves when you brush before 10pm.”
+
+⸻
+
+📆 4. CALENDAR VIEW
+
+Monthly grid:
+
+Each day tile shows:
+
+* 🟢 Full Day
+* 🟡 Partial Day
+* 🔴 Missed Day
+
+Tap day → expands:
+
+* what was completed/missed
+
+⸻
+
+🏆 5. REWARDS SCREEN
+
+Top:
+
+* XP Level
+* Progress bar to next level
+
+⸻
+
+Sections:
+
+🎖 Badges
+
+* 7-day streak
+* 30-day streak
+* 10 full days
+
+⸻
+
+🪙 Points Balance
+
+Earned from:
+
+* full days
+* extra brushing sessions
+
+⸻
+
+🧴 Unlockables
+
+* UI themes
+* sound packs
+* motivational packs
+
+⸻
+
+⚙️ 6. SETTINGS SCREEN
+
+Clean grouped sections:
+
+Reminder Settings
+
+* Morning time picker
+* Night time picker
+
+⸻
+
+Timer Settings
+
+* 2 min / 3 min toggle
+
+⸻
+
+Behavior Rules
+
+* streak strict mode (ON by default)
+* comeback mode settings
+
+⸻
+
+Data
+
+* backup / restore
+* offline storage status
+
+⸻
+
+😬 7. MISSED SESSION SCREEN (IMPORTANT)
+
+This is NOT optional.
+
+Layout:
+
+Header:
+
+“You missed a brushing session.”
+
+⸻
+
+Required Input:
+
+“Why did you miss it?”
+
+Options:
+
+* Forgot
+* Too tired
+* Busy
+* Not home
+
+User MUST select one.
+
+⸻
+
+Button:
+
+“Continue”
+
+No skipping.
+
+⸻
+
+🔁 8. COMEBACK MODE UI
+
+When user returns after inactivity:
+
+Top:
+
+* “Welcome back”
+
+⸻
+
+Message:
+
+* “Let’s restart consistency today.”
+
+⸻
+
+Warning (small, not aggressive):
+
+* “Streak will reset if missed again.”
+
+⸻
+
+Button:
+
+* “Start today’s routine”
+
+⸻
+
+🧠 DESIGN RULES (IMPORTANT)
+
+* No clutter on home screen
+* One primary action per screen
+* No heavy gamification visuals (keep it subtle)
+* Everything feels like Apple Health + Duolingo discipline mix
+* Timer screen is sacred (zero distractions)
+* Streak is always visible but not overwhelming
+
+⸻
+
+🔥 IF YOU BUILD THIS RIGHT
+
+This app feels like:
+
+* Apple Health habit system
+* Duolingo streak psychology
+* Clinical dental seriousness
+* Minimalist UI product
+
+Not a game. A system.
