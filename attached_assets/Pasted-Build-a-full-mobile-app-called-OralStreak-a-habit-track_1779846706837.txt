@@ -1,0 +1,302 @@
+Build a full mobile app called “OralStreak”, a habit-tracking app focused on enforcing proper daily oral hygiene through verified actions, streaks, and accountability.
+
+Use:
+
+* Expo React Native (TypeScript)
+* Supabase (optional backend, but structure for it)
+* Offline-first local storage (AsyncStorage or SQLite)
+
+The app must be structured, production-ready, and modular.
+
+⸻
+
+🧠 CORE APP RULE
+
+The app is NOT a simple checklist.
+
+Every action MUST be verified:
+
+* Brushing cannot be logged manually
+* Brushing must be completed through a timer
+* Timer must fully complete (no early completion allowed)
+
+⸻
+
+🪥 DAILY REQUIREMENTS SYSTEM
+
+A user’s day is only “Complete” if ALL are done:
+
+Brushing (2x daily)
+
+* Morning brushing
+* Night brushing
+* Must use built-in timer (2 or 3 minutes selectable)
+* Timer completion = verification
+
+Flossing
+
+* 1x per day required
+
+Mouthwash
+
+* 1x per day required
+
+⸻
+
+📊 STREAK SYSTEM
+
+Track:
+
+* Brushing streak (morning + night consistency)
+* Full Oral Care Streak (all 4 tasks completed in a day)
+* Total Full Days Completed (lifetime counter)
+
+Rules:
+
+* Missing brushing breaks brushing streak
+* Missing any task breaks full streak
+
+⸻
+
+🔁 RECOVERY SYSTEM
+
+If user misses brushing:
+
+* they enter “Comeback Mode”
+* streak is still punished (no forgiveness)
+* reminders become softer, not spammy
+
+⸻
+
+🧾 MISSED SESSION FLOW
+
+If a user misses brushing:
+
+* app MUST ask: “Why did you miss it?”
+* user must select a reason (required input)
+
+⸻
+
+🎯 CORE FEATURES
+
+1. Daily Streak System
+
+Tracks consistency of brushing habits.
+
+2. Custom Timer
+
+* 2 or 3 minute brushing options
+* guided full-duration timer
+
+3. Morning & Night Tracking
+
+Separate tracking for each brushing session.
+
+4. Push Notifications
+
+* morning and night reminders
+* smart reminder windows (not spam)
+
+5. Reward Badges
+
+Unlocked for milestones:
+
+* streaks
+* full days
+
+6. XP & Levels
+
+Users earn XP for:
+
+* brushing
+* full days
+* extra brushing sessions
+
+7. Dashboard Home Screen
+
+Shows:
+
+* streak
+* today’s status
+* “Brush Now” button
+* completion status
+
+8. Sound + Haptic Timer Guidance
+
+Every 30 seconds gives cue during brushing.
+
+9. Missed Reminder Escalation
+
+Soft follow-up reminder if ignored.
+
+10. Offline-First Storage
+
+Works fully offline, sync later if backend added.
+
+11. Missed Session Reflection Prompt
+
+Required reason when missing brushing.
+
+12. Weekly Summary Report
+
+Shows:
+
+* completion rate
+* missed habits
+* streak status
+
+13. Comeback Mode
+
+* softer UX
+* but streak still breaks if missed
+
+14. Custom Reminder Times
+
+User sets exact morning/night reminder times.
+
+15. Habit Calendar View
+
+Monthly view of:
+
+* brushing completion
+* floss/mouthwash completion
+
+16. Extra Brushing System
+
+Extra brushing sessions:
+
+* tracked separately
+* used for rewards
+
+17. Freeze Token System
+
+Users earn freeze tokens ONLY by:
+
+* completing extra brushing sessions
+
+Tokens can protect streak once (optional future use system built in).
+
+18. Adaptive Difficulty
+
+App adjusts reminders if user is failing habits.
+
+19. Motivational Messages
+
+Dynamic encouragement based on streak and behavior.
+
+20. Full Oral Care System
+
+* brushing 2x daily
+* flossing 1x daily
+* mouthwash 1x daily
+
+21. Completion States
+
+Each day is:
+
+* Complete
+* Partial
+* Missed
+
+22. Evening Wrap-Up Reminder
+
+Final chance to complete missing floss/mouthwash before day ends.
+
+23. Multi-Streak System
+
+* brushing streak
+* full oral care streak
+
+24. Progress Insights Screen
+
+Shows:
+
+* weak habits
+* trends
+* streak history
+
+25. VERIFIED BRUSHING RULE
+
+Brushing ONLY counts if timer is fully completed.
+
+26. Anti-Skip Timer Lock
+
+User cannot skip or fast-complete timer.
+
+27. Smart Reminder Windows
+
+Only notify during relevant time windows.
+
+28. Focus Mode Timer Screen
+
+Full-screen locked brushing mode.
+
+29. Streak Rules Engine
+
+Strict rule system:
+
+* brushing failure breaks brushing streak
+* full failure breaks full streak
+
+30. Reward Shop (Non-monetary)
+
+Earn points to unlock:
+
+* themes
+* sounds
+* UI styles
+
+31. Data Backup System
+
+Offline-first with optional sync-ready architecture.
+
+32. Habit Pattern Detection
+
+Detects:
+
+* missed night brushing trends
+* weak habits
+* weekend drop-offs
+
+33. First-Time Setup Flow
+
+User configures:
+
+* wake/sleep schedule
+* reminder times
+* timer preference (2/3 min)
+
+⸻
+
+📱 SCREENS REQUIRED
+
+1. Home Dashboard
+2. Timer Screen (core logic)
+3. Stats / Insights
+4. Calendar View
+5. Rewards / XP Screen
+6. Settings
+7. Missed Session Reflection Screen
+
+⸻
+
+🧱 TECH STRUCTURE
+
+Organize as:
+
+* /components
+* /screens
+* /services (streak logic, timer logic, notifications)
+* /storage (offline data handling)
+* /utils
+* /constants
+
+⸻
+
+⚠️ IMPORTANT DESIGN GOAL
+
+This app must feel:
+
+* strict but motivating
+* game-like but serious
+* simple UI, powerful logic
