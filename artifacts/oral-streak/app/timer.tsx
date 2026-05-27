@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  Image,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +22,8 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import { Audio } from "expo-av";
+
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 
@@ -33,7 +36,7 @@ const SESSION_LABELS: Record<SessionType, string> = {
   extra: "Extra Session",
 };
 
-const SESSION_ICONS: Record<SessionType, keyof typeof import("@expo/vector-icons").Ionicons.glyphMap | string> = {
+const SESSION_ICONS: Record<SessionType, string> = {
   morning: "sunny",
   night: "moon",
   extra: "add-circle",
@@ -48,318 +51,280 @@ const XP_EARNED: Record<SessionType, number> = {
 export default function TimerScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+
   const params = useLocalSearchParams<{ session: string }>();
   const session = (params.session ?? "morning") as SessionType;
-  const { state, completeMorningBrush, completeNightBrush, addExtraBrush } = useApp();
+
+  const { state, completeMorningBrush, completeNightBrush, addExtraBrush } =
+    useApp();
 
   const durationSeconds = (state.settings.timerDuration ?? 2) * 60;
 
   const [timerState, setTimerState] = useState<TimerState>("idle");
   const [secondsLeft, setSecondsLeft] = useState(durationSeconds);
 
-  // Use a ref to track interval so it never goes stale
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Track whether completion has already been recorded (prevent double-fire)
+  // 🎧 Spotify state
+  const [spotifyToken, setSpotifyToken] = useState<string | null>(null);
+  const [nowPlaying, setNowPlaying] = useState<any>(null);
+  const [playlistName, setPlaylistName] = useState<string | null>(null);
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const completedRef = useRef(false);
-  // Track last haptic milestone to avoid re-firing
-  const lastHapticElapsed = useRef(0);
+  const lastTickRef = useRef(0);
+
+  const tickSound = useRef<Audio.Sound | null>(null);
+  const startSound = useRef<Audio.Sound | null>(null);
+  const successSound = useRef<Audio.Sound | null>(null);
 
   const progress = useSharedValue(0);
   const pulse = useSharedValue(1);
 
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const topPad = Platform.OS === "web" ? 60 : insets.top;
+  const bottomPad = Platform.OS === "web" ? 30 : insets.bottom;
 
-  // Prevent back navigation while timer is running
+  // 🚫 BACK BLOCK
   useEffect(() => {
-    const handler = BackHandler.addEventListener("hardwareBackPress", () => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (timerState === "running") return true;
       return false;
     });
-    return () => handler.remove();
+    return () => sub.remove();
   }, [timerState]);
 
-  // Pulse animation — start/stop based on timerState
+  // 🎧 LOAD SOUNDS
+  useEffect(() => {
+    const load = async () => {
+      const { sound: tick } = await Audio.Sound.createAsync(
+        require("../assets/sounds/tick.mp3")
+      );
+      const { sound: start } = await Audio.Sound.createAsync(
+        require("../assets/sounds/start.mp3")
+      );
+      const { sound: success } = await Audio.Sound.createAsync(
+        require("../assets/sounds/success.mp3")
+      );
+
+      tickSound.current = tick;
+      startSound.current = start;
+      successSound.current = success;
+    };
+
+    load();
+
+    return () => {
+      tickSound.current?.unloadAsync();
+      startSound.current?.unloadAsync();
+      successSound.current?.unloadAsync();
+    };
+  }, []);
+
+  // 🎵 SPOTIFY LIVE DATA
+  useEffect(() => {
+    if (timerState !== "running" || !spotifyToken) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("https://api.spotify.com/v1/me/player", {
+          headers: { Authorization: `Bearer ${spotifyToken}` },
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        const item = data?.item;
+        const context = data?.context;
+
+        setNowPlaying(item || null);
+
+        // playlist lookup (if available)
+        if (context?.type === "playlist" && context?.uri) {
+          try {
+            const playlistId = context.uri.split(":").pop();
+
+            const p = await fetch(
+              `https://api.spotify.com/v1/playlists/${playlistId}`,
+              {
+                headers: { Authorization: `Bearer ${spotifyToken}` },
+              }
+            );
+
+            const playlistData = await p.json();
+            setPlaylistName(playlistData?.name || null);
+          } catch {
+            setPlaylistName(null);
+          }
+        } else {
+          setPlaylistName(null);
+        }
+      } catch {}
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [timerState, spotifyToken]);
+
+  // 🌊 BREATHING ANIMATION
   useEffect(() => {
     if (timerState === "running") {
       pulse.value = withRepeat(
         withSequence(
-          withTiming(1.04, { duration: 800, easing: Easing.inOut(Easing.sine) }),
-          withTiming(1.0, { duration: 800, easing: Easing.inOut(Easing.sine) })
+          withTiming(1.06, {
+            duration: 900,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(1, { duration: 900 })
         ),
-        -1,
-        false
+        -1
       );
     } else {
       cancelAnimation(pulse);
-      pulse.value = withTiming(1.0, { duration: 200 });
+      pulse.value = withTiming(1);
     }
   }, [timerState]);
 
-  // Side effects that react to secondsLeft changes (NEVER inside setState)
+  // ⏱ TIMER ENGINE
   useEffect(() => {
     if (timerState !== "running") return;
 
     const elapsed = durationSeconds - secondsLeft;
 
-    // Haptic every 30 seconds elapsed (not on first tick)
-    if (elapsed > 0 && elapsed % 30 === 0 && elapsed !== lastHapticElapsed.current) {
-      lastHapticElapsed.current = elapsed;
+    progress.value = withTiming(elapsed / durationSeconds, {
+      duration: 400,
+    });
+
+    if (elapsed > 0 && elapsed % 15 === 0 && elapsed !== lastTickRef.current) {
+      lastTickRef.current = elapsed;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      tickSound.current?.replayAsync().catch(() => {});
     }
 
-    // Update ring progress animation
-    const pct = elapsed / durationSeconds;
-    progress.value = withTiming(pct, { duration: 900 });
-
-    // Timer complete
     if (secondsLeft <= 0 && !completedRef.current) {
       completedRef.current = true;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      setTimerState("done");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
-      // Award completion — safe to call here (outside setState updater)
+      if (intervalRef.current) clearInterval(intervalRef.current);
+
+      setTimerState("done");
+
+      successSound.current?.replayAsync().catch(() => {});
+
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
+      ).catch(() => {});
+
       try {
         if (session === "morning") completeMorningBrush();
         else if (session === "night") completeNightBrush();
-        else if (session === "extra") addExtraBrush();
-      } catch {
-        // Never let a context error crash the timer result screen
-      }
+        else addExtraBrush();
+      } catch {}
     }
   }, [secondsLeft, timerState]);
 
-  // Clean up interval on unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
   const startTimer = () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-    } catch {}
-    lastHapticElapsed.current = 0;
+    startSound.current?.replayAsync().catch(() => {});
+
     completedRef.current = false;
+    lastTickRef.current = 0;
+
     setSecondsLeft(durationSeconds);
     setTimerState("running");
+
     intervalRef.current = setInterval(() => {
-      // Simple pure decrement — no side effects here
-      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
+      setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
     }, 1000);
   };
 
-  const handleCancel = () => {
-    if (timerState === "running") {
-      Alert.alert(
-        "Cancel Session?",
-        "The timer must fully complete for brushing to count. Your progress will be lost.",
-        [
-          { text: "Keep Brushing", style: "cancel" },
-          {
-            text: "Cancel",
-            style: "destructive",
-            onPress: () => {
-              if (intervalRef.current) clearInterval(intervalRef.current);
-              router.back();
-            },
-          },
-        ]
-      );
-    } else {
-      router.back();
-    }
-  };
-
-  const handleDone = () => {
-    router.back();
-  };
+  const handleCancel = () => router.back();
+  const handleDone = () => router.back();
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
-  const timeDisplay = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  const progressPercent = Math.min(
-    100,
-    ((durationSeconds - secondsLeft) / durationSeconds) * 100
-  );
+
+  const timeDisplay = `${String(minutes).padStart(2, "0")}:${String(
+    seconds
+  ).padStart(2, "0")}`;
+
+  const progressPercent =
+    ((durationSeconds - secondsLeft) / durationSeconds) * 100;
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
   }));
 
   const ringStyle = useAnimatedStyle(() => ({
-    opacity: 0.3 + 0.7 * progress.value,
+    opacity: 0.2 + 0.8 * progress.value,
   }));
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.background,
-          paddingTop: topPad,
-          paddingBottom: bottomPad,
-        },
-      ]}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        {timerState !== "running" ? (
-          <TouchableOpacity onPress={handleCancel} style={styles.backBtn} activeOpacity={0.7}>
-            <Ionicons name="chevron-back" size={28} color={colors.foreground} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.backBtn} />
-        )}
-        <Text style={[styles.sessionLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-          {SESSION_LABELS[session]}
-        </Text>
-        {timerState === "running" ? (
-          <TouchableOpacity onPress={handleCancel} style={styles.cancelBtn} activeOpacity={0.7}>
-            <Text style={[styles.cancelText, { color: colors.destructive, fontFamily: "Inter_500Medium" }]}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.cancelBtn} />
-        )}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* TOP */}
+      <View style={styles.top}>
+        <Text style={styles.title}>BRUSH FOCUS</Text>
+        <TouchableOpacity onPress={handleCancel}>
+          <Ionicons name="close" size={24} color={colors.foreground} />
+        </TouchableOpacity>
       </View>
 
-      {/* Main timer display */}
-      <View style={styles.timerArea}>
-        <Animated.View style={[styles.ringOuter, { borderColor: colors.primary + "33" }, ringStyle]}>
-          <Animated.View style={[styles.ringMiddle, { borderColor: colors.primary + "55" }, pulseStyle]}>
-            <View style={[styles.ringInner, { backgroundColor: colors.card, borderColor: colors.primary }]}>
-              {timerState === "done" ? (
-                <Ionicons name="checkmark-circle" size={80} color={colors.primary} />
-              ) : (
-                <>
-                  <Ionicons
-                    name={SESSION_ICONS[session] as any}
-                    size={28}
-                    color={timerState === "running" ? colors.primary : colors.mutedForeground}
-                  />
-                  <Text
-                    style={[
-                      styles.timerText,
-                      {
-                        color: timerState === "running" ? colors.primary : colors.foreground,
-                        fontFamily: "Inter_700Bold",
-                      },
-                    ]}
-                  >
-                    {timeDisplay}
-                  </Text>
-                  {timerState === "running" && (
-                    <Text style={[styles.brushingLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                      Keep brushing!
-                    </Text>
-                  )}
-                </>
-              )}
-            </View>
+      {/* CENTER */}
+      <View style={styles.center}>
+        <Animated.View style={[styles.ring, ringStyle]}>
+          <Animated.View style={[styles.inner, pulseStyle]}>
+            <Ionicons
+              name={SESSION_ICONS[session] as any}
+              size={24}
+              color={colors.primary}
+            />
+
+            <Text style={styles.time}>{timeDisplay}</Text>
+
+            <Text style={styles.sub}>Brush with focus</Text>
           </Animated.View>
         </Animated.View>
 
-        {timerState === "running" && (
-          <View style={styles.progressInfo}>
-            <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: colors.primary,
-                    width: `${progressPercent}%` as any,
-                  },
-                ]}
+        {/* 🎧 SPOTIFY NOW PLAYING */}
+        {spotifyToken && nowPlaying && (
+          <View style={styles.spotifyCard}>
+            {nowPlaying?.album?.images?.[0]?.url && (
+              <Image
+                source={{ uri: nowPlaying.album.images[0].url }}
+                style={styles.album}
               />
+            )}
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.song}>
+                {nowPlaying?.name ?? "Unknown Track"}
+              </Text>
+
+              <Text style={styles.artist}>
+                {nowPlaying?.artists?.map((a: any) => a.name).join(", ")}
+              </Text>
+
+              {playlistName && (
+                <Text style={styles.playlist}>
+                  Playlist: {playlistName}
+                </Text>
+              )}
             </View>
-            <Text style={[styles.progressText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {Math.round(progressPercent)}% complete — do not exit
-            </Text>
+
+            <Ionicons name="logo-spotify" size={20} color="#1DB954" />
           </View>
         )}
       </View>
 
-      {/* Bottom section */}
+      {/* BOTTOM */}
       <View style={styles.bottom}>
         {timerState === "idle" && (
-          <>
-            <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
-              <Ionicons name="information-circle-outline" size={18} color={colors.mutedForeground} />
-              <Text style={[styles.infoText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                The timer must fully complete for your session to count. Do not exit during brushing.
-              </Text>
-            </View>
-
-            <View style={styles.metaRow}>
-              <View style={[styles.metaBadge, { backgroundColor: colors.surface }]}>
-                <Ionicons name="timer-outline" size={14} color={colors.mutedForeground} />
-                <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                  {state.settings.timerDuration} minutes
-                </Text>
-              </View>
-              <View style={[styles.metaBadge, { backgroundColor: colors.surface }]}>
-                <Ionicons name="pulse-outline" size={14} color={colors.mutedForeground} />
-                <Text style={[styles.metaText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                  Haptic every 30s
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.startBtn, { backgroundColor: colors.primary }]}
-              onPress={startTimer}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="play" size={22} color={colors.primaryForeground} />
-              <Text style={[styles.startBtnText, { color: colors.primaryForeground, fontFamily: "Inter_700Bold" }]}>
-                Start Brushing
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {timerState === "running" && (
-          <View style={[styles.runningInfo, { backgroundColor: colors.card }]}>
-            <Ionicons name="lock-closed-outline" size={18} color={colors.mutedForeground} />
-            <Text style={[styles.infoText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Timer locked. Brush all surfaces thoroughly.
-            </Text>
-          </View>
+          <TouchableOpacity style={styles.startBtn} onPress={startTimer}>
+            <Ionicons name="play" size={18} color="white" />
+            <Text style={styles.startText}>Start</Text>
+          </TouchableOpacity>
         )}
 
         {timerState === "done" && (
-          <>
-            <View style={[styles.successCard, { backgroundColor: colors.primary + "22", borderColor: colors.primary + "44" }]}>
-              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-              <View style={styles.successText}>
-                <Text style={[styles.successTitle, { color: colors.primary, fontFamily: "Inter_700Bold" }]}>
-                  Session Complete!
-                </Text>
-                <Text style={[styles.successSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  +{XP_EARNED[session]} XP earned
-                  {session === "extra" ? " • +1 Freeze Token" : ""}
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.startBtn, { backgroundColor: colors.primary }]}
-              onPress={handleDone}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="checkmark" size={22} color={colors.primaryForeground} />
-              <Text style={[styles.startBtnText, { color: colors.primaryForeground, fontFamily: "Inter_700Bold" }]}>
-                Done
-              </Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity style={styles.startBtn} onPress={handleDone}>
+            <Ionicons name="checkmark" size={18} color="white" />
+            <Text style={styles.startText}>Done</Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -368,107 +333,99 @@ export default function TimerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
+
+  top: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
-  backBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  sessionLabel: { fontSize: 18 },
-  cancelBtn: { width: 64, alignItems: "flex-end", justifyContent: "center" },
-  cancelText: { fontSize: 15 },
-  timerArea: {
+
+  title: {
+    color: "white",
+    fontSize: 12,
+    letterSpacing: 2,
+  },
+
+  center: {
     flex: 1,
-    alignItems: "center",
     justifyContent: "center",
-    gap: 32,
-    paddingHorizontal: 32,
-  },
-  ringOuter: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ringMiddle: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ringInner: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 3,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  timerText: {
-    fontSize: 52,
-    letterSpacing: -2,
-    lineHeight: 56,
-  },
-  brushingLabel: { fontSize: 14 },
-  progressInfo: { width: "100%", gap: 8 },
-  progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 3 },
-  progressText: { fontSize: 13, textAlign: "center" },
-  bottom: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  infoCard: {
-    flexDirection: "row",
-    gap: 10,
-    padding: 14,
-    borderRadius: 14,
-    alignItems: "flex-start",
-  },
-  infoText: { flex: 1, fontSize: 13, lineHeight: 19 },
-  metaRow: { flexDirection: "row", gap: 10 },
-  metaBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  metaText: { fontSize: 12 },
-  startBtn: {
-    height: 56,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  startBtnText: { fontSize: 18 },
-  runningInfo: {
-    flexDirection: "row",
-    gap: 10,
-    padding: 14,
-    borderRadius: 14,
     alignItems: "center",
   },
-  successCard: {
-    flexDirection: "row",
-    gap: 12,
-    padding: 14,
-    borderRadius: 14,
+
+  ring: {
+    width: 260,
+    height: 260,
+    borderRadius: 130,
     borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    justifyContent: "center",
     alignItems: "center",
   },
-  successText: { flex: 1 },
-  successTitle: { fontSize: 17 },
-  successSub: { fontSize: 13 },
+
+  inner: {
+    alignItems: "center",
+  },
+
+  time: {
+    fontSize: 52,
+    color: "white",
+    fontWeight: "700",
+  },
+
+  sub: {
+    color: "rgba(255,255,255,0.6)",
+  },
+
+  spotifyCard: {
+    marginTop: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    width: "90%",
+  },
+
+  album: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+  },
+
+  song: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  artist: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 12,
+  },
+
+  playlist: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 11,
+  },
+
+  bottom: {
+    padding: 20,
+  },
+
+  startBtn: {
+    backgroundColor: "#4F46E5",
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+  },
+
+  startText: {
+    color: "white",
+    fontWeight: "600",
+  },
 });
