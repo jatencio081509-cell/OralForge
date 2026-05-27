@@ -14,16 +14,15 @@ export interface ShopItem {
   cost: number;
   icon: string;
   color: string;
-  isDefault?: boolean;
 }
 
 export const SHOP_CATEGORIES: Array<{ id: ShopCategory; label: string; icon: string }> = [
-  { id: "themes", label: "Themes", icon: "color-palette-outline" },
-  { id: "motivational", label: "Messages", icon: "chatbubble-outline" },
-  { id: "badge_frames", label: "Frames", icon: "ribbon-outline" },
-  { id: "timer_styles", label: "Timer", icon: "timer-outline" },
-  { id: "toothbrushes", label: "Brushes", icon: "water-outline" },
-  { id: "streak_effects", label: "Effects", icon: "flame-outline" },
+  { id: "themes",         label: "Themes",   icon: "color-palette-outline" },
+  { id: "motivational",  label: "Messages", icon: "chatbubble-outline" },
+  { id: "badge_frames",  label: "Frames",   icon: "ribbon-outline" },
+  { id: "timer_styles",  label: "Timer",    icon: "timer-outline" },
+  { id: "toothbrushes",  label: "Brushes",  icon: "water-outline" },
+  { id: "streak_effects",label: "Effects",  icon: "flame-outline" },
 ];
 
 export const ALL_SHOP_ITEMS: ShopItem[] = [
@@ -126,7 +125,7 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "frame_bronze",
     category: "badge_frames",
     name: "Bronze Frame",
-    description: "Classic bronze border around your streak card.",
+    description: "Classic bronze border shown around your streak card.",
     cost: 80,
     icon: "medal",
     color: "#cd7f32",
@@ -153,7 +152,7 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "frame_diamond",
     category: "badge_frames",
     name: "Diamond Frame",
-    description: "The rarest frame. Show your discipline.",
+    description: "The rarest frame. Shows your discipline.",
     cost: 300,
     icon: "diamond",
     color: "#74c0fc",
@@ -173,7 +172,7 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "timer_radar",
     category: "timer_styles",
     name: "Radar Pulse",
-    description: "Rippling radar rings pulse with each second.",
+    description: "Rippling radar rings pulse with each second on the timer.",
     cost: 120,
     icon: "radio-outline",
     color: "#00b896",
@@ -182,7 +181,7 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "timer_liquid",
     category: "timer_styles",
     name: "Liquid Fill",
-    description: "Timer fills like water rising in a tube.",
+    description: "Timer screen fills like water rising in a tube.",
     cost: 150,
     icon: "beaker-outline",
     color: "#1098ad",
@@ -191,18 +190,20 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "timer_segmented",
     category: "timer_styles",
     name: "Segmented Ring",
-    description: "Discrete arc segments tick off each second.",
+    description: "Discrete arc segments tick off each second on the timer.",
     cost: 100,
     icon: "pie-chart-outline",
     color: "#7950f2",
   },
 
-  // Toothbrush Collection
+  // Toothbrush Collection — purely cosmetic collectibles.
+  // Each brush you own shows as a trophy in your collection here.
+  // Think of it like collecting stamps — a record of your consistency milestone.
   {
     id: "brush_sonic",
     category: "toothbrushes",
     name: "Sonic Blue",
-    description: "A sleek electric-blue sonic brush.",
+    description: "A sleek electric-blue collectible. Unlocked early — keep it up.",
     cost: 60,
     icon: "water",
     color: "#3b9eff",
@@ -211,7 +212,7 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "brush_gold",
     category: "toothbrushes",
     name: "Gold Edition",
-    description: "Premium gold brush for the dedicated.",
+    description: "Reserved for the dedicated. A trophy for sustained effort.",
     cost: 150,
     icon: "star",
     color: "#f59f00",
@@ -220,7 +221,7 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "brush_carbon",
     category: "toothbrushes",
     name: "Carbon Black",
-    description: "Matte black carbon fibre aesthetic.",
+    description: "Matte black carbon aesthetic. For those who keep it clean.",
     cost: 100,
     icon: "shield",
     color: "#343a40",
@@ -229,7 +230,7 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "brush_crystal",
     category: "toothbrushes",
     name: "Crystal Brush",
-    description: "Translucent crystal handle with mint accents.",
+    description: "The rarest collectible. Proof of serious commitment.",
     cost: 200,
     icon: "diamond",
     color: "#74c0fc",
@@ -258,7 +259,7 @@ export const ALL_SHOP_ITEMS: ShopItem[] = [
     id: "effect_pulse",
     category: "streak_effects",
     name: "Pulsing Light",
-    description: "Gentle mint pulse rings your streak card.",
+    description: "Gentle mint pulse rings around your streak card.",
     cost: 80,
     icon: "radio",
     color: "#00b896",

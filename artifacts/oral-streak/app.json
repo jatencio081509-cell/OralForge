@@ -14,9 +14,14 @@
       "backgroundColor": "#f5f9fc"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSUserNotificationUsageDescription": "OralStreak sends morning and night reminders to help you maintain your oral hygiene streak."
+      }
     },
-    "android": {},
+    "android": {
+      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE"]
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -28,7 +33,15 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#00b896",
+          "sounds": []
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

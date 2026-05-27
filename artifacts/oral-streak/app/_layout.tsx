@@ -8,26 +8,92 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
+import {
+  requestNotificationPermissions,
+  scheduleAllReminders,
+} from "@/services/notificationService";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  const { state, loading } = useApp();
+  const { state, loading, todayRecord } = useApp();
+  const notifBootstrapped = useRef(false);
 
+  // Onboarding redirect
   useEffect(() => {
     if (!loading && !state.settings.onboardingComplete) {
       router.replace("/onboarding");
     }
   }, [loading, state.settings.onboardingComplete]);
+
+  // Bootstrap notifications once after onboarding is complete
+  useEffect(() => {
+    if (loading || !state.settings.onboardingComplete) return;
+    if (notifBootstrapped.current) return;
+    notifBootstrapped.current = true;
+    requestNotificationPermissions();
+  }, [loading, state.settings.onboardingComplete]);
+
+  // Reschedule reminders whenever today's task completion or reminder times change.
+  // This ensures the night reminder always mentions the tasks still pending.
+  const prevFloss = useRef(todayRecord.floss);
+  const prevMouthwash = useRef(todayRecord.mouthwash);
+  const prevMorning = useRef(todayRecord.morningBrush);
+  const prevNight = useRef(todayRecord.nightBrush);
+  const prevMorningTime = useRef(state.settings.morningReminderTime);
+  const prevNightTime = useRef(state.settings.nightReminderTime);
+
+  useEffect(() => {
+    if (loading || !state.settings.onboardingComplete) return;
+
+    const tasksChanged =
+      prevFloss.current !== todayRecord.floss ||
+      prevMouthwash.current !== todayRecord.mouthwash ||
+      prevMorning.current !== todayRecord.morningBrush ||
+      prevNight.current !== todayRecord.nightBrush;
+
+    const timesChanged =
+      prevMorningTime.current !== state.settings.morningReminderTime ||
+      prevNightTime.current !== state.settings.nightReminderTime;
+
+    if (tasksChanged || timesChanged) {
+      prevFloss.current = todayRecord.floss;
+      prevMouthwash.current = todayRecord.mouthwash;
+      prevMorning.current = todayRecord.morningBrush;
+      prevNight.current = todayRecord.nightBrush;
+      prevMorningTime.current = state.settings.morningReminderTime;
+      prevNightTime.current = state.settings.nightReminderTime;
+
+      scheduleAllReminders(
+        state.settings.morningReminderTime,
+        state.settings.nightReminderTime,
+        {
+          morningBrush: todayRecord.morningBrush,
+          nightBrush: todayRecord.nightBrush,
+          floss: todayRecord.floss,
+          mouthwash: todayRecord.mouthwash,
+        }
+      );
+    }
+  }, [
+    todayRecord.morningBrush,
+    todayRecord.nightBrush,
+    todayRecord.floss,
+    todayRecord.mouthwash,
+    state.settings.morningReminderTime,
+    state.settings.nightReminderTime,
+    loading,
+    state.settings.onboardingComplete,
+  ]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
