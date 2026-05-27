@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   BackHandler,
   Platform,
@@ -18,6 +18,7 @@ import Animated, {
   withRepeat,
   withSequence,
   Easing,
+  cancelAnimation,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
@@ -32,25 +33,36 @@ const SESSION_LABELS: Record<SessionType, string> = {
   extra: "Extra Session",
 };
 
-const SESSION_ICONS: Record<SessionType, string> = {
+const SESSION_ICONS: Record<SessionType, keyof typeof import("@expo/vector-icons").Ionicons.glyphMap | string> = {
   morning: "sunny",
   night: "moon",
   extra: "add-circle",
+};
+
+const XP_EARNED: Record<SessionType, number> = {
+  morning: 25,
+  night: 25,
+  extra: 10,
 };
 
 export default function TimerScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ session: string }>();
-  const session = (params.session as SessionType) ?? "morning";
+  const session = (params.session ?? "morning") as SessionType;
   const { state, completeMorningBrush, completeNightBrush, addExtraBrush } = useApp();
 
   const durationSeconds = (state.settings.timerDuration ?? 2) * 60;
 
   const [timerState, setTimerState] = useState<TimerState>("idle");
   const [secondsLeft, setSecondsLeft] = useState(durationSeconds);
+
+  // Use a ref to track interval so it never goes stale
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastHapticAt = useRef<number>(durationSeconds);
+  // Track whether completion has already been recorded (prevent double-fire)
+  const completedRef = useRef(false);
+  // Track last haptic milestone to avoid re-firing
+  const lastHapticElapsed = useRef(0);
 
   const progress = useSharedValue(0);
   const pulse = useSharedValue(1);
@@ -61,82 +73,86 @@ export default function TimerScreen() {
   // Prevent back navigation while timer is running
   useEffect(() => {
     const handler = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (timerState === "running") {
-        return true; // block
-      }
+      if (timerState === "running") return true;
       return false;
     });
     return () => handler.remove();
   }, [timerState]);
 
-  // Pulse animation while running
+  // Pulse animation — start/stop based on timerState
   useEffect(() => {
     if (timerState === "running") {
       pulse.value = withRepeat(
         withSequence(
           withTiming(1.04, { duration: 800, easing: Easing.inOut(Easing.sine) }),
-          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.sine) })
+          withTiming(1.0, { duration: 800, easing: Easing.inOut(Easing.sine) })
         ),
         -1,
         false
       );
     } else {
-      pulse.value = withTiming(1);
+      cancelAnimation(pulse);
+      pulse.value = withTiming(1.0, { duration: 200 });
     }
   }, [timerState]);
 
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
-
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: 0.3 + 0.7 * progress.value,
-  }));
-
-  const tick = useCallback(() => {
-    setSecondsLeft((prev) => {
-      const next = prev - 1;
-
-      // Haptic every 30 seconds
-      const elapsed = durationSeconds - next;
-      if (elapsed > 0 && elapsed % 30 === 0) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-
-      progress.value = withTiming(1 - next / durationSeconds, { duration: 1000 });
-
-      if (next <= 0) {
-        return 0;
-      }
-      return next;
-    });
-  }, [durationSeconds]);
-
+  // Side effects that react to secondsLeft changes (NEVER inside setState)
   useEffect(() => {
-    if (secondsLeft <= 0 && timerState === "running") {
-      clearInterval(intervalRef.current!);
-      intervalRef.current = null;
-      setTimerState("done");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (timerState !== "running") return;
 
-      // Award completion
-      if (session === "morning") completeMorningBrush();
-      else if (session === "night") completeNightBrush();
-      else if (session === "extra") addExtraBrush();
+    const elapsed = durationSeconds - secondsLeft;
+
+    // Haptic every 30 seconds elapsed (not on first tick)
+    if (elapsed > 0 && elapsed % 30 === 0 && elapsed !== lastHapticElapsed.current) {
+      lastHapticElapsed.current = elapsed;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    }
+
+    // Update ring progress animation
+    const pct = elapsed / durationSeconds;
+    progress.value = withTiming(pct, { duration: 900 });
+
+    // Timer complete
+    if (secondsLeft <= 0 && !completedRef.current) {
+      completedRef.current = true;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setTimerState("done");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+
+      // Award completion — safe to call here (outside setState updater)
+      try {
+        if (session === "morning") completeMorningBrush();
+        else if (session === "night") completeNightBrush();
+        else if (session === "extra") addExtraBrush();
+      } catch {
+        // Never let a context error crash the timer result screen
+      }
     }
   }, [secondsLeft, timerState]);
 
-  const startTimer = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setTimerState("running");
-    intervalRef.current = setInterval(tick, 1000);
-  };
-
+  // Clean up interval on unmount
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
+
+  const startTimer = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    } catch {}
+    lastHapticElapsed.current = 0;
+    completedRef.current = false;
+    setSecondsLeft(durationSeconds);
+    setTimerState("running");
+    intervalRef.current = setInterval(() => {
+      // Simple pure decrement — no side effects here
+      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+  };
 
   const handleCancel = () => {
     if (timerState === "running") {
@@ -167,8 +183,18 @@ export default function TimerScreen() {
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
   const timeDisplay = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const progressPercent = Math.min(
+    100,
+    ((durationSeconds - secondsLeft) / durationSeconds) * 100
+  );
 
-  const progressPercent = ((durationSeconds - secondsLeft) / durationSeconds) * 100;
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: 0.3 + 0.7 * progress.value,
+  }));
 
   return (
     <View
@@ -240,7 +266,6 @@ export default function TimerScreen() {
           </Animated.View>
         </Animated.View>
 
-        {/* Progress arc indicator */}
         {timerState === "running" && (
           <View style={styles.progressInfo}>
             <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
@@ -318,7 +343,7 @@ export default function TimerScreen() {
                   Session Complete!
                 </Text>
                 <Text style={[styles.successSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  +{session === "extra" ? 10 : 25} XP earned
+                  +{XP_EARNED[session]} XP earned
                   {session === "extra" ? " • +1 Freeze Token" : ""}
                 </Text>
               </View>
@@ -410,7 +435,14 @@ const styles = StyleSheet.create({
   },
   infoText: { flex: 1, fontSize: 13, lineHeight: 19 },
   metaRow: { flexDirection: "row", gap: 10 },
-  metaBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  metaBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
   metaText: { fontSize: 12 },
   startBtn: {
     height: 56,
@@ -421,7 +453,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   startBtnText: { fontSize: 18 },
-  runningInfo: { flexDirection: "row", gap: 10, padding: 14, borderRadius: 14, alignItems: "center" },
+  runningInfo: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
   successCard: {
     flexDirection: "row",
     gap: 12,
