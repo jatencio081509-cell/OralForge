@@ -12,9 +12,12 @@ import React, { useEffect, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/expo";
+import { tokenCache } from "@clerk/expo/token-cache";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
+import { SpotifyProvider } from "@/context/SpotifyContext";
 import {
   configureNotificationHandler,
   requestNotificationPermissions,
@@ -24,24 +27,22 @@ import {
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
-function RootLayoutNav() {
+function NotificationSetup() {
   const { state, loading, todayRecord } = useApp();
-  const notifBootstrapped = useRef(false);
+  const notifRef = useRef(false);
 
-  // Onboarding redirect
   useEffect(() => {
     if (!loading && !state.settings.onboardingComplete) {
       router.replace("/onboarding");
     }
   }, [loading, state.settings.onboardingComplete]);
 
-  // Set up notification handler and request permissions once
   useEffect(() => {
-    if (loading || !state.settings.onboardingComplete) return;
-    if (notifBootstrapped.current) return;
-    notifBootstrapped.current = true;
-    // Run entirely async — never block or crash the UI
+    if (loading || !state.settings.onboardingComplete || notifRef.current) return;
+    notifRef.current = true;
     (async () => {
       try {
         configureNotificationHandler();
@@ -56,97 +57,81 @@ function RootLayoutNav() {
             mouthwash: todayRecord.mouthwash,
           }
         );
-      } catch {
-        // Notification bootstrap failure must never affect the app
-      }
+      } catch {}
     })();
   }, [loading, state.settings.onboardingComplete]);
 
-  // Reschedule night reminder when task completions or reminder times change
-  const prevFloss = useRef(todayRecord.floss);
-  const prevMouthwash = useRef(todayRecord.mouthwash);
-  const prevMorning = useRef(todayRecord.morningBrush);
-  const prevNight = useRef(todayRecord.nightBrush);
-  const prevMorningTime = useRef(state.settings.morningReminderTime);
-  const prevNightTime = useRef(state.settings.nightReminderTime);
+  const pFloss = useRef(todayRecord.floss);
+  const pMouthwash = useRef(todayRecord.mouthwash);
+  const pMorning = useRef(todayRecord.morningBrush);
+  const pNight = useRef(todayRecord.nightBrush);
+  const pMorningTime = useRef(state.settings.morningReminderTime);
+  const pNightTime = useRef(state.settings.nightReminderTime);
 
   useEffect(() => {
-    if (loading || !state.settings.onboardingComplete || !notifBootstrapped.current) return;
-
-    const tasksChanged =
-      prevFloss.current !== todayRecord.floss ||
-      prevMouthwash.current !== todayRecord.mouthwash ||
-      prevMorning.current !== todayRecord.morningBrush ||
-      prevNight.current !== todayRecord.nightBrush;
-
-    const timesChanged =
-      prevMorningTime.current !== state.settings.morningReminderTime ||
-      prevNightTime.current !== state.settings.nightReminderTime;
-
-    if (!tasksChanged && !timesChanged) return;
-
-    prevFloss.current = todayRecord.floss;
-    prevMouthwash.current = todayRecord.mouthwash;
-    prevMorning.current = todayRecord.morningBrush;
-    prevNight.current = todayRecord.nightBrush;
-    prevMorningTime.current = state.settings.morningReminderTime;
-    prevNightTime.current = state.settings.nightReminderTime;
-
-    // Fire and forget — wrapped in try/catch inside scheduleAllReminders already
-    scheduleAllReminders(
-      state.settings.morningReminderTime,
-      state.settings.nightReminderTime,
-      {
-        morningBrush: todayRecord.morningBrush,
-        nightBrush: todayRecord.nightBrush,
-        floss: todayRecord.floss,
-        mouthwash: todayRecord.mouthwash,
-      }
-    ).catch(() => {});
+    if (loading || !state.settings.onboardingComplete || !notifRef.current) return;
+    const tasks =
+      pFloss.current !== todayRecord.floss ||
+      pMouthwash.current !== todayRecord.mouthwash ||
+      pMorning.current !== todayRecord.morningBrush ||
+      pNight.current !== todayRecord.nightBrush;
+    const times =
+      pMorningTime.current !== state.settings.morningReminderTime ||
+      pNightTime.current !== state.settings.nightReminderTime;
+    if (!tasks && !times) return;
+    pFloss.current = todayRecord.floss;
+    pMouthwash.current = todayRecord.mouthwash;
+    pMorning.current = todayRecord.morningBrush;
+    pNight.current = todayRecord.nightBrush;
+    pMorningTime.current = state.settings.morningReminderTime;
+    pNightTime.current = state.settings.nightReminderTime;
+    scheduleAllReminders(state.settings.morningReminderTime, state.settings.nightReminderTime, {
+      morningBrush: todayRecord.morningBrush,
+      nightBrush: todayRecord.nightBrush,
+      floss: todayRecord.floss,
+      mouthwash: todayRecord.mouthwash,
+    }).catch(() => {});
   }, [
-    todayRecord.morningBrush,
-    todayRecord.nightBrush,
-    todayRecord.floss,
-    todayRecord.mouthwash,
-    state.settings.morningReminderTime,
-    state.settings.nightReminderTime,
-    loading,
-    state.settings.onboardingComplete,
+    todayRecord.morningBrush, todayRecord.nightBrush,
+    todayRecord.floss, todayRecord.mouthwash,
+    state.settings.morningReminderTime, state.settings.nightReminderTime,
+    loading, state.settings.onboardingComplete,
   ]);
 
+  return null;
+}
+
+/**
+ * Uses expo-router's "protected routes" pattern:
+ * conditionally render screens based on auth state.
+ * When a screen group disappears, expo-router auto-redirects.
+ */
+function RootLayoutNav() {
+  const { isSignedIn, isLoaded } = useAuth();
+
+  if (!isLoaded) return null;
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="timer"
-        options={{
-          headerShown: false,
-          presentation: "modal",
-          gestureEnabled: false,
-        }}
-      />
-      <Stack.Screen
-        name="missed-reflection"
-        options={{
-          headerShown: false,
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen
-        name="onboarding"
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
-        }}
-      />
-      <Stack.Screen
-        name="shop"
-        options={{
-          headerShown: false,
-          presentation: "card",
-        }}
-      />
-    </Stack>
+    <AppProvider>
+      <SpotifyProvider>
+        <NotificationSetup />
+        <Stack screenOptions={{ headerShown: false }}>
+          {isSignedIn ? (
+            // Authenticated screens
+            <>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="timer" options={{ presentation: "modal", gestureEnabled: false }} />
+              <Stack.Screen name="missed-reflection" options={{ presentation: "modal" }} />
+              <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="shop" options={{ presentation: "card" }} />
+            </>
+          ) : (
+            // Unauthenticated — only auth screens
+            <Stack.Screen name="(auth)" />
+          )}
+        </Stack>
+      </SpotifyProvider>
+    </AppProvider>
   );
 }
 
@@ -159,26 +144,26 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
+    if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <SafeAreaProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <AppProvider>
-                <RootLayoutNav />
-              </AppProvider>
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache} proxyUrl={proxyUrl}>
+      <ClerkLoaded>
+        <SafeAreaProvider>
+          <ErrorBoundary>
+            <QueryClientProvider client={queryClient}>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </QueryClientProvider>
+          </ErrorBoundary>
+        </SafeAreaProvider>
+      </ClerkLoaded>
+    </ClerkProvider>
   );
 }

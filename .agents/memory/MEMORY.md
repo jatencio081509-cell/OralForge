@@ -1,0 +1,1 @@
+- [Clerk Expo v3 Legacy API](clerk-expo-v3-api.md) — useSignIn/useSignUp must come from @clerk/expo/legacy in v3+; top-level export uses signals, not the classic shape.

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
@@ -12,6 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useSpotify } from "@/context/SpotifyContext";
+import { useAuth } from "@clerk/expo";
 import { clearState } from "@/services/storageService";
 import { formatTime12h } from "@/utils/timeFormat";
 
@@ -135,6 +138,8 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { state, updateSettings } = useApp();
+  const spotify = useSpotify();
+  const { signOut } = useAuth();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 100 : 100;
@@ -293,11 +298,77 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {/* Spotify */}
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
+          MUSIC
+        </Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.settingRow, { borderBottomColor: "transparent" }]}>
+            <View style={[styles.settingIcon, { backgroundColor: "#1DB95418" }]}>
+              <Ionicons name={"logo-spotify" as any} size={17} color="#1DB954" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.settingLabel, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                Spotify
+              </Text>
+              <Text style={[styles.settingSubLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                {spotify.isConnected
+                  ? "Connected — shows now playing during brushing"
+                  : !spotify.hasClientId
+                  ? "Add EXPO_PUBLIC_SPOTIFY_CLIENT_ID to enable"
+                  : "Connect to see now playing while you brush"}
+              </Text>
+            </View>
+            {spotify.hasClientId ? (
+              spotify.isConnecting ? (
+                <ActivityIndicator size="small" color="#1DB954" />
+              ) : spotify.isConnected ? (
+                <TouchableOpacity
+                  style={[styles.spotifyBtn, { backgroundColor: "#1DB95418", borderColor: "#1DB954" }]}
+                  onPress={() =>
+                    Alert.alert("Disconnect Spotify", "Stop showing now playing during brushing?", [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Disconnect", style: "destructive", onPress: spotify.disconnect },
+                    ])
+                  }
+                >
+                  <Text style={[styles.spotifyBtnText, { color: "#1DB954" }]}>Connected</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.spotifyBtn, { backgroundColor: "#1DB954", borderColor: "#1DB954" }]}
+                  onPress={spotify.connect}
+                >
+                  <Text style={[styles.spotifyBtnText, { color: "white" }]}>Connect</Text>
+                </TouchableOpacity>
+              )
+            ) : null}
+          </View>
+        </View>
+
         {/* Danger */}
         <Text style={[styles.sectionLabel, { color: colors.destructive, fontFamily: "Inter_600SemiBold" }]}>
           DANGER ZONE
         </Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.settingRow, { borderBottomColor: colors.border }]}
+            onPress={() =>
+              Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+                { text: "Cancel", style: "cancel" },
+                { text: "Sign Out", style: "destructive", onPress: () => signOut() },
+              ])
+            }
+            activeOpacity={0.7}
+          >
+            <View style={[styles.settingIcon, { backgroundColor: colors.destructive + "18" }]}>
+              <Ionicons name="log-out-outline" size={17} color={colors.destructive} />
+            </View>
+            <Text style={[styles.settingLabel, { color: colors.destructive, fontFamily: "Inter_500Medium" }]}>
+              Sign Out
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.destructive} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.settingRow, { borderBottomColor: "transparent" }]}
             onPress={handleResetData}
@@ -361,4 +432,11 @@ const styles = StyleSheet.create({
   onBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   onText: { fontSize: 12 },
   version: { textAlign: "center", fontSize: 12, marginTop: 8, paddingBottom: 8 },
+  spotifyBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  spotifyBtnText: { fontSize: 13, fontWeight: "600" },
 });
