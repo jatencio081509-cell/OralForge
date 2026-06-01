@@ -24,6 +24,9 @@
         "backgroundColor": "#ffffff"
       }
     },
+    "updates": {
+      "url": "https://u.expo.dev/2ff97edc-300c-4d37-8a5b-e24e66018762"
+    },
     "extra": {
       "eas": {
         "projectId": "2ff97edc-300c-4d37-8a5b-e24e66018762"
