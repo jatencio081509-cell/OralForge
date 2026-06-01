@@ -3,9 +3,6 @@
     "name": "OralForge",
     "slug": "oralforge",
     "version": "1.0.0",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,9 +20,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       }
-    },
-    "updates": {
-      "url": "https://u.expo.dev/2ff97edc-300c-4d37-8a5b-e24e66018762"
     },
     "extra": {
       "eas": {
